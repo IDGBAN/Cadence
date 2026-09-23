@@ -1,0 +1,313 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/bricolage-grotesque';
+
+/* dark: and light: follow data-mode, not the OS */
+@custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
+@custom-variant light (&:where([data-mode='light'], [data-mode='light'] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-fg-4: var(--fg-4);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-flame: var(--flame);
+  --color-xp: var(--xp);
+  --color-habit: var(--habit);
+
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: var(--shadow-card-v);
+  --shadow-pop: var(--shadow-pop-v);
+  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent), 0 8px 30px -8px color-mix(in oklab, var(--accent) 55%, transparent);
+
+  --animate-pop: pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-flicker: flicker 1.8s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 1.8s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+  --animate-fade-up: fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* data-theme goes on <html>, with data-mode set alongside it */
+:root,
+[data-theme='midnight'] {
+  --bg: #07080f;
+  --bg-soft: #0a0c15;
+  --surface: #0f111c;
+  --surface-2: #151826;
+  --surface-3: #1c2031;
+  --line: #1d2133;
+  --line-strong: #2a3048;
+  --fg: #eceef7;
+  --fg-2: #b3b8cc;
+  --fg-3: #7c8299;
+  --fg-4: #4f556b;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+  --flame: #ff8a3d;
+  --xp: #fcd34d;
+  --cell-empty: #151826;
+  /* where progress bar fills shade toward (Daylight overrides it) */
+  --progress-shade: var(--surface);
+  --aurora-1: color-mix(in oklab, var(--accent) 22%, transparent);
+  --aurora-2: rgba(34, 211, 238, 0.07);
+  --aurora-3: rgba(244, 114, 182, 0.05);
+  --shadow-card-v: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-pop-v: 0 24px 60px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+[data-theme='oled'] {
+  --bg: #000000;
+  --bg-soft: #050505;
+  --surface: #0b0b0d;
+  --surface-2: #121215;
+  --surface-3: #1a1a1f;
+  --line: #1b1b20;
+  --line-strong: #2a2a31;
+  --fg: #f2f2f5;
+  --fg-2: #b5b5bf;
+  --fg-3: #7d7d88;
+  --fg-4: #4e4e57;
+  --cell-empty: #131316;
+  --progress-shade: var(--surface);
+  --aurora-1: color-mix(in oklab, var(--accent) 12%, transparent);
+  --aurora-2: rgba(34, 211, 238, 0.03);
+  --aurora-3: transparent;
+  --shadow-card-v: 0 0 0 0 transparent;
+  --shadow-pop-v: 0 24px 60px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
+}
+
+[data-theme='dusk'] {
+  --bg: #0f0b12;
+  --bg-soft: #130e17;
+  --surface: #19131e;
+  --surface-2: #211a27;
+  --surface-3: #2a2131;
+  --line: #2a2130;
+  --line-strong: #3a2e42;
+  --fg: #f4ede8;
+  --fg-2: #c9bcc0;
+  --fg-3: #8f8090;
+  --fg-4: #5d5061;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #fb7185;
+  --info: #7dd3fc;
+  --flame: #ff9153;
+  --xp: #fde68a;
+  --cell-empty: #221a28;
+  --progress-shade: var(--surface);
+  --aurora-1: color-mix(in oklab, var(--accent) 20%, transparent);
+  --aurora-2: rgba(251, 146, 60, 0.07);
+  --aurora-3: rgba(244, 114, 182, 0.07);
+  --shadow-card-v: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-pop-v: 0 24px 60px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+[data-theme='daylight'] {
+  --bg: #f4f5fa;
+  --bg-soft: #eceef6;
+  --surface: #ffffff;
+  --surface-2: #f3f4f9;
+  --surface-3: #e8eaf3;
+  --line: #e3e5ef;
+  --line-strong: #cfd3e1;
+  --fg: #111427;
+  --fg-2: #444a63;
+  --fg-3: #737a93;
+  --fg-4: #a6abbd;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+  --flame: #ea580c;
+  --xp: #a16207;
+  --cell-empty: #e9ebf3;
+  /* shading toward white made pale fills vanish into the track, so shade toward the ink */
+  --progress-shade: var(--fg);
+  --aurora-1: color-mix(in oklab, var(--accent) 14%, transparent);
+  --aurora-2: rgba(34, 211, 238, 0.08);
+  --aurora-3: rgba(244, 114, 182, 0.06);
+  --shadow-card-v: 0 1px 2px rgba(17, 20, 39, 0.04), 0 8px 24px -12px rgba(17, 20, 39, 0.12);
+  --shadow-pop-v: 0 24px 60px -16px rgba(17, 20, 39, 0.25), 0 0 0 1px rgba(17, 20, 39, 0.06);
+  color-scheme: light;
+}
+
+/* accents */
+:root,
+[data-accent='violet'] { --accent: #8b7bff; --accent-2: #c084fc; --accent-fg: #ffffff; }
+[data-accent='emerald'] { --accent: #34d399; --accent-2: #2dd4bf; --accent-fg: #03140d; }
+[data-accent='sky'] { --accent: #38bdf8; --accent-2: #818cf8; --accent-fg: #03121c; }
+[data-accent='rose'] { --accent: #fb7185; --accent-2: #f472b6; --accent-fg: #1f0508; }
+[data-accent='amber'] { --accent: #fbbf24; --accent-2: #fb923c; --accent-fg: #1c1203; }
+[data-accent='cyan'] { --accent: #22d3ee; --accent-2: #34d399; --accent-fg: #021519; }
+/* darker second stops on Daylight, otherwise white labels on gradients fade out halfway */
+[data-theme='daylight'][data-accent='violet'] { --accent: #6d5dfc; --accent-2: #9333ea; }
+[data-theme='daylight'][data-accent='emerald'] { --accent: #059669; --accent-2: #0d9488; --accent-fg: #ffffff; }
+[data-theme='daylight'][data-accent='sky'] { --accent: #0284c7; --accent-2: #4f46e5; --accent-fg: #ffffff; }
+[data-theme='daylight'][data-accent='rose'] { --accent: #e11d48; --accent-2: #be185d; --accent-fg: #ffffff; }
+[data-theme='daylight'][data-accent='amber'] { --accent: #d97706; --accent-2: #ea580c; --accent-fg: #ffffff; }
+[data-theme='daylight'][data-accent='cyan'] { --accent: #0891b2; --accent-2: #0f766e; --accent-fg: #ffffff; }
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    --habit: var(--accent);
+  }
+  body {
+    @apply bg-bg text-fg font-sans;
+    min-height: 100dvh;
+    font-feature-settings: 'ss01', 'cv11';
+    background-image:
+      radial-gradient(1100px 620px at 8% -12%, var(--aurora-1), transparent 62%),
+      radial-gradient(900px 520px at 105% 0%, var(--aurora-2), transparent 60%),
+      radial-gradient(800px 600px at 60% 115%, var(--aurora-3), transparent 60%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--accent) 80%, transparent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  button, [role='button'] { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type='number'] { -moz-appearance: textfield; }
+  h1, h2, h3 { @apply font-display; letter-spacing: -0.02em; }
+
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-track { background: transparent; }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--surface) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    @apply border border-line;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-fg-3;
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* these need --habit, set with habitStyle(color) */
+  .habit-text { color: var(--habit); }
+  [data-mode='light'] .habit-text { color: color-mix(in oklab, var(--habit) 70%, black); }
+  .habit-tint { background-color: color-mix(in oklab, var(--habit) 14%, transparent); }
+  .habit-tint-strong { background-color: color-mix(in oklab, var(--habit) 26%, transparent); }
+  .habit-border { border-color: color-mix(in oklab, var(--habit) 45%, transparent); }
+  .habit-fill { background-color: var(--habit); }
+  /* for icons on a solid habit fill. white is unreadable on the lighter habit colors */
+  .habit-on-fill { color: color-mix(in oklab, var(--habit) 22%, black); }
+  .habit-glow { box-shadow: 0 0 0 1px color-mix(in oklab, var(--habit) 45%, transparent), 0 10px 30px -10px color-mix(in oklab, var(--habit) 70%, transparent); }
+  .habit-gradient {
+    background-image: linear-gradient(135deg, color-mix(in oklab, var(--habit) 90%, white 10%), color-mix(in oklab, var(--habit) 70%, black 10%));
+  }
+
+  .accent-gradient { background-image: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .text-gradient {
+    background-image: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .flame-gradient { background-image: linear-gradient(160deg, #ffd166 0%, var(--flame) 45%, #ef4444 100%); }
+  .xp-gradient { background-image: linear-gradient(90deg, #fde68a, var(--xp), #f59e0b); }
+
+  .stripes {
+    background-image: repeating-linear-gradient(135deg, color-mix(in oklab, var(--fg-3) 28%, transparent) 0 2px, transparent 2px 6px);
+  }
+  .sheen { position: relative; overflow: hidden; }
+  .sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.14) 50%, transparent 70%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 2.4s linear infinite;
+    pointer-events: none;
+  }
+  .grain {
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  [data-mode='light'] .grain { opacity: 0.025; }
+
+  .scroll-fade-x {
+    mask-image: linear-gradient(90deg, transparent, black 16px, black calc(100% - 16px), transparent);
+  }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes shimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -100% 0; }
+}
+@keyframes flicker {
+  0%, 100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+  25% { transform: scale(1.06) rotate(-3deg); filter: brightness(1.15); }
+  50% { transform: scale(0.97) rotate(2deg); filter: brightness(0.95); }
+  75% { transform: scale(1.04) rotate(-1deg); filter: brightness(1.1); }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--habit) 55%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* reduced motion, from the OS or the in-app setting */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+[data-reduce-motion='true'] *, [data-reduce-motion='true'] *::before, [data-reduce-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
