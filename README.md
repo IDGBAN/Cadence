@@ -1,5 +1,9 @@
 # Cadence
 
+[![Latest release](https://img.shields.io/github/v/release/IDGBAN/Cadence?label=release&color=1DB954&logo=github)](https://github.com/IDGBAN/Cadence/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/IDGBAN/Cadence/total?color=1DB954&logo=github)](https://github.com/IDGBAN/Cadence/releases)
+[![License: AGPL v3](https://img.shields.io/github/license/IDGBAN/Cadence?color=663366)](LICENSE)
+
 A habit tracker that runs entirely in your browser. There's no account and no server, and nothing leaves your machine.
 
 I wanted something that handles the messy parts of tracking: a rating out of 10 for how I slept, hours of study, a weekly gym target, and "days since" counters for things I'm trying to quit. Fixing last Tuesday's log had to be painless, and I wanted it to spot patterns between habits, like whether gym days line up with better sleep.
@@ -59,3 +63,7 @@ src/
 npm test            # vitest
 npm run typecheck   # tsc
 ```
+
+## License
+
+Released under the [GNU AGPLv3](LICENSE) license.
