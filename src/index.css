@@ -57,7 +57,7 @@
   --fg: #eceef7;
   --fg-2: #b3b8cc;
   --fg-3: #7c8299;
-  --fg-4: #4f556b;
+  --fg-4: #5e647a;
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
@@ -86,7 +86,7 @@
   --fg: #f2f2f5;
   --fg-2: #b5b5bf;
   --fg-3: #7d7d88;
-  --fg-4: #4e4e57;
+  --fg-4: #606069;
   --cell-empty: #131316;
   --progress-shade: var(--surface);
   --aurora-1: color-mix(in oklab, var(--accent) 12%, transparent);
@@ -108,7 +108,7 @@
   --fg: #f4ede8;
   --fg-2: #c9bcc0;
   --fg-3: #8f8090;
-  --fg-4: #5d5061;
+  --fg-4: #716373;
   --success: #4ade80;
   --warning: #fbbf24;
   --danger: #fb7185;
@@ -135,8 +135,8 @@
   --line-strong: #cfd3e1;
   --fg: #111427;
   --fg-2: #444a63;
-  --fg-3: #737a93;
-  --fg-4: #a6abbd;
+  --fg-3: #696f88;
+  --fg-4: #878da3;
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
