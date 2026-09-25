@@ -137,11 +137,12 @@ const earliestLogCache = new WeakMap<Record<DayKey, LogEntry>, DayKey>();
 function earliestLogDay(logs: Record<DayKey, LogEntry> | undefined): DayKey | undefined {
   if (!logs) return undefined;
   const cached = earliestLogCache.get(logs);
-  // cheap check in case the cached day was deleted in place
-  if (cached !== undefined && logs[cached] !== undefined) return cached;
+  // cheap check in case the cached day was deleted or changed in place
+  if (cached !== undefined && logs[cached] !== undefined && !logs[cached].skipped) return cached;
   let min: DayKey | undefined;
   for (const key in logs) {
-    if (key.length === 10 && (min === undefined || key < min)) min = key;
+    // an excused day isn't tracking, so it can't move the start earlier
+    if (key.length === 10 && !logs[key].skipped && (min === undefined || key < min)) min = key;
   }
   // skip caching empty maps, they're cheap to scan and likely to be filled next
   if (min !== undefined) earliestLogCache.set(logs, min);
@@ -185,7 +186,7 @@ function sortedRelapses(data: AppData, habitId: string): SortedRelapses {
   return sorted;
 }
 
-type Mode = 'daily' | 'period' | 'quit' | 'metric';
+export type HabitMode = 'daily' | 'period' | 'quit' | 'metric';
 
 interface QuitIndex {
   startMs: number;
@@ -199,7 +200,7 @@ interface QuitIndex {
 interface Prep {
   habit: Habit;
   logs: Record<DayKey, LogEntry> | undefined;
-  mode: Mode;
+  mode: HabitMode;
   period: Period;
   mask: number;
   target: number;
@@ -210,12 +211,14 @@ interface Prep {
   quit: QuitIndex | undefined;
 }
 
-function effectivePeriod(habit: Habit): Period {
+/** The period goals are measured over. Rating and quit habits are always daily. */
+export function effectivePeriod(habit: Habit): Period {
   if (habit.type === 'rating' || habit.type === 'quit') return 'day';
   return habit.period === 'week' || habit.period === 'month' ? habit.period : 'day';
 }
 
-function modeOf(habit: Habit): Mode {
+/** How the engine evaluates a habit. Use this instead of re-deriving it from type, kind and period. */
+export function habitMode(habit: Habit): HabitMode {
   if (habit.type === 'quit') return 'quit';
   if (habit.kind === 'metric') return 'metric';
   return effectivePeriod(habit) === 'day' ? 'daily' : 'period';
@@ -255,7 +258,7 @@ function buildQuitIndex(habit: Habit, data: AppData, startDate: DayKey, dayStart
 }
 
 function prepare(habit: Habit, data: AppData, ctx: EngineCtx): Prep {
-  const mode = modeOf(habit);
+  const mode = habitMode(habit);
   const startDate = validStartDate(habit, ctx);
   const quit = mode === 'quit' ? buildQuitIndex(habit, data, startDate, ctx.dayStartHour) : undefined;
   return {
@@ -306,12 +309,17 @@ function dailyScore(p: Prep, value: number): number {
   return Math.min(1, Math.max(0, value / p.target));
 }
 
-// a 0 still counts for atMost goals ("none today") and non-rating metrics
+// a 0 still counts for atMost goals ("none today") and non-rating metrics, but a rating of 0 means not rated
 function hasValue(p: Prep, value: number): boolean {
   if (value > 0) return true;
-  if (p.mode === 'quit' || p.isCheck) return false;
-  if (p.mode === 'metric') return p.habit.type !== 'rating';
+  if (p.mode === 'quit' || p.isCheck || p.habit.type === 'rating') return false;
+  if (p.mode === 'metric') return true;
   return p.atMost;
+}
+
+// whether a daily entry gets judged against the goal at all. A note-only rating entry doesn't
+function isScorable(p: Prep, entry: LogEntry | undefined, value: number): boolean {
+  return entry !== undefined && (value > 0 || p.habit.type !== 'rating');
 }
 
 interface DayEval {
@@ -367,24 +375,29 @@ function evalDay(p: Prep, day: DayKey, weekday: number, today: DayKey, out: DayE
     return;
   }
   if (p.mode === 'period') {
+    // an amount logged against a limit isn't a win for that day, only the period total is
+    if (p.atMost) {
+      out.status = out.hasValue ? S_LOGGED : S_EMPTY;
+      return;
+    }
     const contributed = entry !== undefined && value > 0;
     out.status = contributed ? S_DONE : S_EMPTY;
     out.score = contributed ? 1 : 0;
     return;
   }
 
-  const success = entry !== undefined && dailySuccess(p, value);
-  if (success) {
+  const scorable = isScorable(p, entry, value);
+  if (scorable && dailySuccess(p, value)) {
     out.status = S_DONE;
     out.score = 1;
     return;
   }
-  out.score = entry !== undefined ? dailyScore(p, value) : 0;
+  out.score = scorable ? dailyScore(p, value) : 0;
   if (!out.due) {
     out.status = S_NOT_DUE;
     return;
   }
-  if (entry !== undefined) {
+  if (scorable) {
     if (p.atMost) {
       out.status = S_MISSED; // already over the limit, so it's a miss even today
       return;
@@ -552,7 +565,8 @@ function dayModeRate(p: Prep, tl: Timeline, i0: number, i1: number): RateResult 
     if (st === S_BEFORE || st === S_FUTURE || st === S_SKIPPED) continue;
     if (p.mode === 'daily') {
       if (!(flags[i] & F_DUE)) continue;
-      if (i === todayIndex && st !== S_DONE) continue;
+      // an atMost miss today is already final
+      if (i === todayIndex && st !== S_DONE && st !== S_MISSED) continue;
       opportunities++;
       if (st === S_DONE) successes++;
     } else if (p.mode === 'metric') {
@@ -621,7 +635,8 @@ function computePeriod(p: Prep, day: DayKey, ctx: EngineCtx): PeriodProgress {
 
   const skipped = activeDays === 0;
   const raw = (p.target * activeDays) / fullLength;
-  const target = p.isCheck ? (skipped ? 0 : Math.max(1, Math.ceil(raw - EPS))) : raw;
+  // a check target can't ask for more days than the period has
+  const target = p.isCheck ? (skipped ? 0 : Math.min(activeDays, Math.max(1, Math.ceil(raw - EPS)))) : raw;
   let success = false;
   let progress = 0;
   if (!skipped) {
@@ -695,11 +710,14 @@ function periodStreak(periods: PeriodProgress[], unit: 'week' | 'month'): Streak
   return info;
 }
 
-function periodRate(periods: PeriodProgress[], start: DayKey, end: DayKey): RateResult {
+// a period belongs to the window holding the day it resolves (its end, or today while it's running),
+// so back-to-back windows never both count the week that straddles them
+function periodRate(periods: PeriodProgress[], start: DayKey, end: DayKey, today: DayKey): RateResult {
   let successes = 0;
   let opportunities = 0;
   for (const pp of periods) {
-    if (pp.end < start || pp.start > end) continue;
+    const resolvesOn = pp.current ? today : pp.end;
+    if (resolvesOn < start || resolvesOn > end) continue;
     if (pp.skipped || (pp.current && !pp.success)) continue;
     opportunities++;
     if (pp.success) successes++;
@@ -809,36 +827,6 @@ export function isScheduledOn(habit: Habit, day: DayKey): boolean {
   return (scheduleMask(habit.schedule) & (1 << weekdayOfKey(day))) !== 0;
 }
 
-export function isDueOn(habit: Habit, data: AppData, day: DayKey, ctx: EngineCtx): boolean {
-  if (!isScheduledOn(habit, day)) return false;
-  return !isBeforeStart(prepare(habit, data, ctx), day);
-}
-
-export function dayScore(habit: Habit, entry: LogEntry | undefined): number {
-  if (!entry || entry.skipped || habit.type === 'quit') return 0;
-  const value = finite(entry.value);
-  const mode = modeOf(habit);
-  if (mode === 'metric') return value > 0 || (habit.type !== 'rating' && habit.type !== 'check') ? 1 : 0;
-  if (mode === 'period') return value > 0 ? 1 : 0;
-  const target = Math.max(0, finite(habit.target));
-  if (habit.type === 'check') return value > 0 ? 1 : 0;
-  if (habit.direction === 'atMost') {
-    if (value <= target) return 1;
-    return Math.max(0, 1 - (value - target) / Math.max(target, 1));
-  }
-  if (target <= 0) return 1;
-  return Math.min(1, Math.max(0, value / target));
-}
-
-/** For period habits any value above 0 counts. */
-export function isEntrySuccess(habit: Habit, entry: LogEntry | undefined): boolean {
-  if (!entry || entry.skipped || habit.type === 'quit' || habit.kind === 'metric') return false;
-  const value = finite(entry.value);
-  if (habit.type === 'check' || effectivePeriod(habit) !== 'day') return value > 0;
-  const target = Math.max(0, finite(habit.target));
-  return habit.direction === 'atMost' ? value <= target : value >= target;
-}
-
 export function dayCell(habit: Habit, data: AppData, day: DayKey, ctx: EngineCtx): DayCell {
   const p = prepare(habit, data, ctx);
   const ev = newDayEval();
@@ -914,19 +902,12 @@ export interface RateResult {
 
 export function completionRate(habit: Habit, data: AppData, start: DayKey, end: DayKey, ctx: EngineCtx): RateResult {
   const p = prepare(habit, data, ctx);
-  if (p.mode === 'period') return periodRate(periodList(p, start, end, ctx), start, end);
+  if (p.mode === 'period') return periodRate(periodList(p, start, end, ctx), start, end, ctx.today);
   const from = historyStart(p);
   const lo = start < from ? from : start;
   const hi = end > ctx.today ? ctx.today : end;
   const tl = buildTimeline(p, lo, hi, ctx.today);
   return dayModeRate(p, tl, 0, tl.n - 1);
-}
-
-export function habitStrength(habit: Habit, data: AppData, ctx: EngineCtx): number {
-  const p = prepare(habit, data, ctx);
-  if (p.mode === 'metric') return 0;
-  if (p.mode === 'period') return periodStrength(p, periodList(p, startOf(p), ctx.today, ctx));
-  return dayModeStrength(p, buildTimeline(p, historyStart(p), ctx.today, ctx.today));
 }
 
 // days that aren't evaluated carry the previous value forward
@@ -998,9 +979,9 @@ export function habitSummary(habit: Habit, data: AppData, ctx: EngineCtx): Habit
   if (p.mode === 'period') {
     const periods = periodList(p, from, today, ctx);
     streak = periodStreak(periods, p.period === 'month' ? 'month' : 'week');
-    all = periodRate(periods, from, today);
-    r30 = periodRate(periods, start30, today);
-    r7 = periodRate(periods, start7, today);
+    all = periodRate(periods, from, today, today);
+    r30 = periodRate(periods, start30, today, today);
+    r7 = periodRate(periods, start7, today, today);
     for (const pp of periods) if (pp.success) totalSuccesses++;
     strength = periodStrength(p, periods);
   } else {
@@ -1163,7 +1144,8 @@ export function dailyValueSeries(habit: Habit, data: AppData, start: DayKey, end
             value = entry && v > 0 ? v : null;
           } else if (entry) {
             value = v;
-          } else if (isGoal && day < today && (p.mode === 'period' || (p.mask & (1 << cursor.weekday)) !== 0)) {
+          } else if (isGoal && day < today && (p.mode === 'period' || (!p.atMost && (p.mask & (1 << cursor.weekday)) !== 0))) {
+            // a forgotten day of a daily limit is unknown, not a perfect zero
             value = 0;
           }
         }
@@ -1253,7 +1235,8 @@ export function overallCompletionSeries(data: AppData, start: DayKey, end: DayKe
       const entry = p.logs ? p.logs[day] : undefined;
       if (entry && entry.skipped) continue;
       total++;
-      if (entry && dailySuccess(p, finite(entry.value))) done++;
+      const value = entry ? finite(entry.value) : 0;
+      if (isScorable(p, entry, value) && dailySuccess(p, value)) done++;
     }
     out[i] = { day, rate: total > 0 ? done / total : null, completed: done, total };
   }

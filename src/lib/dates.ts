@@ -53,13 +53,6 @@ export function weekday(key: DayKey): number {
   return fromDayKey(key).getDay();
 }
 
-export function compareDays(a: DayKey, b: DayKey): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-export const minDay = (a: DayKey, b: DayKey) => (a < b ? a : b);
-export const maxDay = (a: DayKey, b: DayKey) => (a > b ? a : b);
-
 export function eachDay(start: DayKey, end: DayKey): DayKey[] {
   const out: DayKey[] = [];
   if (end < start) return out;
@@ -89,27 +82,6 @@ export function startOfMonth(key: DayKey): DayKey {
 export function endOfMonth(key: DayKey): DayKey {
   const d = fromDayKey(key);
   return toDayKey(new Date(d.getFullYear(), d.getMonth() + 1, 0));
-}
-
-export function daysInMonth(key: DayKey): number {
-  const d = fromDayKey(key);
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-}
-
-export function startOfYear(key: DayKey): DayKey {
-  return `${key.slice(0, 4)}-01-01`;
-}
-
-export function periodStart(key: DayKey, period: 'day' | 'week' | 'month', weekStartsOn: 0 | 1 = 1): DayKey {
-  if (period === 'week') return startOfWeek(key, weekStartsOn);
-  if (period === 'month') return startOfMonth(key);
-  return key;
-}
-
-export function periodEnd(key: DayKey, period: 'day' | 'week' | 'month', weekStartsOn: 0 | 1 = 1): DayKey {
-  if (period === 'week') return endOfWeek(key, weekStartsOn);
-  if (period === 'month') return endOfMonth(key);
-  return key;
 }
 
 /** [weekdayIndex, label] pairs, starting at weekStartsOn. */
@@ -188,13 +160,15 @@ export function formatTime(date: Date | string): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** ISO -> value for <input type="datetime-local"> */
+/** ISO -> value for <input type="datetime-local">, or '' if the date is invalid */
 export function toDateTimeLocalValue(iso: string): string {
   const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '';
   return `${toDayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** <input type="datetime-local"> value -> ISO */
+/** <input type="datetime-local"> value -> ISO, or '' when the field is empty or invalid */
 export function fromDateTimeLocalValue(v: string): string {
-  return new Date(v).toISOString();
+  const d = new Date(v);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : '';
 }

@@ -11,11 +11,7 @@ function numberFormatter(minFrac: number, maxFrac: number): Intl.NumberFormat {
   const key = `${minFrac}:${maxFrac}`;
   let formatter = numberFormatters.get(key);
   if (!formatter) {
-    formatter = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: minFrac,
-      maximumFractionDigits: maxFrac,
-      signDisplay: 'negative',
-    });
+    formatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: minFrac, maximumFractionDigits: maxFrac });
     numberFormatters.set(key, formatter);
   }
   return formatter;
@@ -67,11 +63,17 @@ function pluralWord(word: string): string {
 }
 
 const UNSINGULARIZABLE = new Set(['series', 'species', 'news', 'lens', 'gas', 'yes', 'abs', 'ms']);
+// plurals of -ie words, which the -ies rule would turn into "calory" or "cooky"
+const IE_PLURALS = new Set([
+  'calories', 'cookies', 'movies', 'pies', 'brownies', 'smoothies', 'selfies', 'hoodies', 'zombies', 'veggies',
+  'ties', 'lies', 'rookies', 'goalies', 'birdies',
+]);
 
 // units are stored plural, so only singularize the obvious cases and leave the rest alone
 function singularUnit(unit: string): string {
   const lower = unit.toLowerCase();
   if (unit.length <= 2 || UNSINGULARIZABLE.has(lower) || !/[a-z]$/i.test(unit)) return unit;
+  if (IE_PLURALS.has(lower)) return unit.slice(0, -1);
   if (/[^aeiou]ies$/i.test(unit)) return `${unit.slice(0, -3)}y`;
   if (/(sses|shes|ches|xes|zzes)$/i.test(unit)) return unit.slice(0, -2);
   if (/(ss|us|is)$/i.test(unit)) return unit;
@@ -89,10 +91,15 @@ export function pluralize(count: number, singular: string, plural?: string): str
   return `${formatNumber(n, 1)} ${word}`;
 }
 
+function isMissing(habit: Habit, value: number | undefined | null): value is null | undefined {
+  // a rating of 0 means the day wasn't rated
+  return value === null || value === undefined || !Number.isFinite(value) || (habit.type === 'rating' && value <= 0);
+}
+
 /** Missing values show "Not done" for checks and a dash for everything else. */
 export function formatValue(habit: Habit, value: number | undefined | null): string {
   if (habit.type === 'quit') return '';
-  const missing = value === null || value === undefined || !Number.isFinite(value);
+  const missing = isMissing(habit, value);
   if (habit.type === 'check') return !missing && value > 0 ? 'Done' : 'Not done';
   if (missing) return '—';
   switch (habit.type) {
@@ -116,7 +123,7 @@ function compactNumber(n: number): string {
 
 /** Short form for dense grids. Empty string when there's nothing to show. */
 export function formatValueCompact(habit: Habit, value: number | undefined | null): string {
-  if (habit.type === 'quit' || value === null || value === undefined || !Number.isFinite(value)) return '';
+  if (habit.type === 'quit' || isMissing(habit, value)) return '';
   switch (habit.type) {
     case 'check':
       return value > 0 ? '✓' : '';
@@ -135,8 +142,8 @@ function perPeriod(period: Period): string {
   return period === 'week' ? 'per week' : period === 'month' ? 'per month' : 'per day';
 }
 
-/** "8 glasses per day", "3× per week", "At most 2 cups per day", "7+ out of 10" */
-export function formatGoal(habit: Habit): string {
+/** "8 glasses per day", "3× per week", "At most 2 cups per day", "7+ out of 10". Daily checks show their schedule. */
+export function formatGoal(habit: Habit, weekStartsOn: 0 | 1 = 1): string {
   const target = finite(habit.target);
   if (habit.type === 'quit') return target > 0 ? `${formatNumber(target, 0)}-day goal` : 'Stay clean';
   if (habit.kind === 'metric') return 'Track only';
@@ -144,7 +151,7 @@ export function formatGoal(habit: Habit): string {
   const atMost = habit.direction === 'atMost';
   switch (habit.type) {
     case 'check':
-      return period === 'day' ? scheduleLabel(habit) : `${formatNumber(target, 0)}× ${perPeriod(period)}`;
+      return period === 'day' ? scheduleLabel(habit, weekStartsOn) : `${formatNumber(target, 0)}× ${perPeriod(period)}`;
     case 'rating': {
       const max = formatNumber(habit.ratingMax, 0);
       return atMost ? `≤ ${formatNumber(target, 1)} out of ${max}` : `${formatNumber(target, 1)}+ out of ${max}`;

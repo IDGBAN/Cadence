@@ -27,7 +27,9 @@ export function HabitRow({ habit, reorderable, onMove }: HabitRowProps) {
   const openHabitEditor = useUI((s) => s.openHabitEditor);
 
   const isGoal = habit.kind === 'goal';
-  const goalLine = `${formatGoal(habit)} · ${scheduleLabel(habit, settings.weekStartsOn)}`;
+  const goal = formatGoal(habit, settings.weekStartsOn);
+  const schedule = scheduleLabel(habit, settings.weekStartsOn);
+  const goalLine = goal === schedule ? goal : `${goal} · ${schedule}`;
   const strength = summary?.strength ?? 0;
 
   const startDrag = (event: ReactPointerEvent) => {

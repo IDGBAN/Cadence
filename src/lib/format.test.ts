@@ -216,3 +216,24 @@ describe('cheer', () => {
     expect(relapse.some((m) => done.has(m))).toBe(false);
   });
 });
+
+describe('units and unrated values', () => {
+  it('singularizes -ie plurals without inventing words', () => {
+    expect(formatValue(habit({ type: 'quantity', unit: 'calories' }), 1)).toBe('1 calorie');
+    expect(formatGoal(habit({ type: 'quantity', unit: 'cookies', direction: 'atMost', target: 1 }))).toBe('At most 1 cookie per day');
+    expect(formatValue(habit({ type: 'quantity', unit: 'berries' }), 1)).toBe('1 berry');
+  });
+
+  it('treats a rating of 0 as not rated', () => {
+    const sleep = habit({ type: 'rating', ratingMax: 10 });
+    expect(formatValue(sleep, 0)).toBe('—');
+    expect(formatValueCompact(sleep, 0)).toBe('');
+    expect(formatValue(sleep, 7)).toBe('7/10');
+  });
+
+  it('orders a daily check schedule by the week start', () => {
+    const h = habit({ type: 'check', schedule: [0, 2, 4] });
+    expect(formatGoal(h, 1)).toBe('Tue, Thu, Sun');
+    expect(formatGoal(h, 0)).toBe('Sun, Tue, Thu');
+  });
+});

@@ -67,7 +67,7 @@ export function HabitDetailHeader({ habit, category, data, weekStartsOn }: Habit
     if (await confirmDeleteHabit(habit)) navigate('/habits');
   };
 
-  const goal = formatGoal(habit);
+  const goal = formatGoal(habit, weekStartsOn);
   const schedule = scheduleLabel(habit, weekStartsOn);
 
   return (

@@ -68,7 +68,7 @@ export interface Habit {
 
 /** A missing entry means nothing was logged. */
 export interface LogEntry {
-  /** check: 1 = done. quit habits don't use it. */
+  /** check: 1 = done. rating: 0 = not rated. quit habits don't use it. */
   value: number;
   note?: string;
   /** Excused day: never breaks a streak and doesn't count against completion. value is ignored. */
@@ -155,7 +155,7 @@ export interface DayCell {
 export interface PeriodProgress {
   start: DayKey;
   end: DayKey;
-  /** check: done days. quantity/duration: sum. rating: average of logged days. */
+  /** check: done days (1 or 0 for daily). quantity/duration: sum. rating: that day's score. */
   achieved: number;
   /** Adjusted for skipped days. */
   target: number;
