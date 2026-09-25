@@ -28,12 +28,15 @@ function useXpGain(total: number): Gain | null {
   useEffect(() => {
     const before = previous.current;
     previous.current = total;
-    if (total <= before) return undefined;
-    const next = { id: Date.now(), amount: total - before };
-    setGain(next);
-    const timer = window.setTimeout(() => setGain((g) => (g && g.id === next.id ? null : g)), GAIN_MS);
-    return () => window.clearTimeout(timer);
+    if (total > before) setGain({ id: Date.now(), amount: total - before });
+    else if (total < before) setGain(null);
   }, [total]);
+
+  useEffect(() => {
+    if (!gain) return undefined;
+    const timer = window.setTimeout(() => setGain(null), GAIN_MS);
+    return () => window.clearTimeout(timer);
+  }, [gain]);
 
   return gain;
 }

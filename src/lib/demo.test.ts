@@ -3,7 +3,7 @@ import type { AppData, DayKey, Habit } from '@/types';
 import { addDays, logicalDayOf } from './dates';
 import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from './defaults';
 import { dayOverview, makeCtx, streakInfo } from './habitMath';
-import { computeXp, levelFromXp } from './rewards';
+import { computeXp, findNewlyUnlocked, levelFromXp } from './rewards';
 import { compareOutcome, correlate, generateInsights, pearson, weekdayProfile } from './insights';
 import { generateDemoData } from './demo';
 
@@ -111,8 +111,10 @@ describe('generateDemoData shape', () => {
     expect(demo.timers).toEqual({});
   });
 
-  it('starts with no unlocked achievements and a level the user has already seen', () => {
-    expect(demo.rewards.unlocked).toEqual({});
+  it('comes with its earned badges and level already seen, so loading it is quiet', () => {
+    expect(Object.keys(demo.rewards.unlocked).length).toBeGreaterThan(0);
+    expect(findNewlyUnlocked(demo, ctx)).toEqual([]);
+    for (const at of Object.values(demo.rewards.unlocked)) expect(Date.parse(at)).toBeLessThanOrEqual(ctx.now.getTime());
     expect(demo.rewards.lastSeenLevel).toBeGreaterThanOrEqual(1);
     expect(Number.isInteger(demo.rewards.lastSeenLevel)).toBe(true);
     expect(demo.rewards.lastSeenLevel).toBe(levelFromXp(computeXp(demo, ctx).total).level);
@@ -382,5 +384,16 @@ describe('generateDemoData consistency', () => {
     const goals = demo.habits.filter((h) => h.kind === 'goal' && h.type !== 'quit');
     const withStreaks = goals.filter((h) => streakInfo(h, demo, ctx).best >= 3);
     expect(withStreaks.length).toBeGreaterThanOrEqual(goals.length - 2);
+  });
+});
+
+describe('great days', () => {
+  it('puts the "everything clicked" note on a perfect day for every seed', () => {
+    for (const seed of [1, 2, 3, 7, 42]) {
+      const data = generateDemoData(SPAN, seed, { now: NOW });
+      const day = Object.keys(data.dayNotes).find((d) => data.dayNotes[d].startsWith('Everything clicked'));
+      if (!day) continue;
+      expect(dayOverview(data, day, makeCtx(data.settings, NOW)).perfect, `seed ${seed} on ${day}`).toBe(true);
+    }
   });
 });

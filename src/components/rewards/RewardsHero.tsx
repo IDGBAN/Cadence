@@ -4,9 +4,9 @@ import { CalendarRange, Crown, Sparkles, Zap } from 'lucide-react';
 import type { DayKey } from '@/types';
 import { AnimatedNumber, ProgressBar, StatTile } from '@/components/ui';
 import { useData, useEngineCtx, useMediaQuery, useReducedMotion, useSettings } from '@/store/hooks';
-import { useLevel, useXp } from '@/store/rewardHooks';
+import { useAchievements, useLevel, useXp } from '@/store/rewardHooks';
 import { levelTitle, perfectDays } from '@/lib/rewards';
-import { addDays, eachDay, startOfWeek } from '@/lib/dates';
+import { addDays, eachDay, logicalDayOf, startOfWeek } from '@/lib/dates';
 import { formatNumber, pluralize } from '@/lib/format';
 import { Medallion } from './Medallion';
 
@@ -26,6 +26,7 @@ export function RewardsHero() {
   const settings = useSettings();
   const xp = useXp();
   const level = useLevel();
+  const achievements = useAchievements();
   const reduced = useReducedMotion();
   const wide = useMediaQuery('(min-width: 640px)');
   const today = ctx.today;
@@ -39,8 +40,14 @@ export function RewardsHero() {
 
   const pace = useMemo(() => {
     const window = eachDay(addDays(today, -(PACE_WINDOW_DAYS - 1)), today);
-    return sumDays(xp.byDay, window) / window.length;
-  }, [xp.byDay, today]);
+    const inWindow = new Set(window);
+    // badges are one-off bonuses and would make day-to-day logging look much faster than it is
+    let badgeXp = 0;
+    for (const status of achievements) {
+      if (status.unlockedAt && inWindow.has(logicalDayOf(status.unlockedAt, settings.dayStartHour))) badgeXp += status.def.xp;
+    }
+    return Math.max(0, sumDays(xp.byDay, window) - badgeXp) / window.length;
+  }, [xp.byDay, achievements, today, settings.dayStartHour]);
 
   const toGo = Math.max(0, level.nextLevelXp - level.xp);
   const daysToNext = pace >= MIN_PACE_PER_DAY ? Math.max(1, Math.ceil(toGo / pace)) : null;
@@ -48,7 +55,9 @@ export function RewardsHero() {
 
   const paceLine =
     daysToNext === null
-      ? 'Log a habit today to start earning XP again.'
+      ? xp.total === 0
+        ? 'Log a habit to earn your first XP.'
+        : 'Log a habit today to start earning XP again.'
       : `Level ${level.level + 1} in about ${pluralize(daysToNext, 'day')} at your current pace of ${formatNumber(Math.round(pace), 0)} XP a day.`;
 
   return (
@@ -96,7 +105,8 @@ export function RewardsHero() {
               aria-label={`${Math.round(level.progress * 100)}% of the way to level ${level.level + 1}`}
             />
             <p className="mt-2.5 text-[13px] leading-relaxed text-fg-3">
-              <span className="font-medium text-fg-2">Next: {nextTitle}.</span> {paceLine}
+              {nextTitle !== level.title && <span className="font-medium text-fg-2">Next title: {nextTitle}. </span>}
+              {paceLine}
             </p>
           </div>
         </div>
@@ -122,7 +132,7 @@ export function RewardsHero() {
           icon={<CalendarRange aria-hidden />}
           label="This week"
           value={<AnimatedNumber value={weekXp} format={(n) => formatNumber(Math.round(n), 0)} />}
-          sub={`${formatNumber(Math.round(pace), 0)} XP/day average`}
+          sub={`2-week average: ${formatNumber(Math.round(pace), 0)}/day`}
         />
         <StatTile
           tone="flame"

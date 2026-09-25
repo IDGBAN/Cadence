@@ -1,7 +1,7 @@
 // everything here is cached by object reference, so AppData has to be treated as immutable
 import type { AppData, DayCell, DayKey, Habit, ISODate, LogEntry, PeriodProgress } from '@/types';
-import type { EngineCtx } from './habitMath';
-import { dayCells, habitStartDay, isScheduledOn, periodsInRange, relapsesFor } from './habitMath';
+import type { EngineCtx, HabitMode } from './habitMath';
+import { dayCells, habitMode, habitStartDay, isScheduledOn, periodsInRange, relapsesFor } from './habitMath';
 import { addDays, diffDays, fromDayKey, logicalDayOf, weekday } from './dates';
 
 export interface LevelInfo {
@@ -349,21 +349,11 @@ function storedUnlocks(data: AppData): Record<string, ISODate> | undefined {
   return unlocked && typeof unlocked === 'object' ? unlocked : undefined;
 }
 
-type Mode = 'daily' | 'period' | 'quit' | 'metric';
-
-// same modes as the engine: ratings are always daily and metrics ignore the period
-function modeOf(habit: Habit): Mode {
-  if (habit.type === 'quit') return 'quit';
-  if (habit.kind === 'metric') return 'metric';
-  if (habit.type !== 'rating' && (habit.period === 'week' || habit.period === 'month')) return 'period';
-  return 'daily';
-}
-
-// the engine's "has a value" rule for a non-skipped entry
+// the engine's "has a value" rule for a non-skipped entry. A rating of 0 means not rated
 function entryHasValue(habit: Habit, value: number): boolean {
   if (value > 0) return true;
-  if (habit.type === 'quit' || habit.type === 'check') return false;
-  if (habit.kind === 'metric') return habit.type !== 'rating';
+  if (habit.type === 'quit' || habit.type === 'check' || habit.type === 'rating') return false;
+  if (habit.kind === 'metric') return true;
   return habit.direction === 'atMost';
 }
 
@@ -374,7 +364,7 @@ const F_COUNTED_DONE = 8;
 
 interface HabitHistory {
   habit: Habit;
-  mode: Mode;
+  mode: HabitMode;
   start: DayKey;
   n: number; // arrays cover [start, today]; 0 when the habit starts after today
   xp: Float64Array;
@@ -393,7 +383,7 @@ interface HabitHistory {
 }
 
 function buildHistory(habit: Habit, data: AppData, ctx: EngineCtx): HabitHistory {
-  const mode = modeOf(habit);
+  const mode = habitMode(habit);
   const start = habitStartDay(habit, data, ctx);
   const cells = start <= ctx.today ? dayCells(habit, data, start, ctx.today, ctx) : [];
   const n = cells.length;
@@ -515,7 +505,8 @@ function replayPeriod(h: HabitHistory, cells: DayCell[], data: AppData, ctx: Eng
   }
 }
 
-// day the goal was first reached (atMost: the first day with an entry), -1 if outside the history
+// day the goal was first reached (atMost: the first day with an entry), -1 if outside the history.
+// at-most days are 'logged' rather than 'done', since only the period total can win
 function periodReachIndex(h: HabitHistory, cells: DayCell[], pp: PeriodProgress, isCheck: boolean, atMost: boolean): number {
   const from = Math.max(0, diffDays(h.start, pp.start));
   const to = Math.min(h.n - 1, diffDays(h.start, pp.end));
@@ -525,7 +516,7 @@ function periodReachIndex(h: HabitHistory, cells: DayCell[], pp: PeriodProgress,
     const contributed = cell.status === 'done';
     if (contributed) achieved += isCheck ? 1 : finite(cell.value);
     if (atMost) {
-      if (contributed || (cell.status === 'empty' && cell.value !== undefined)) return i;
+      if (cell.status === 'logged') return i;
     } else if (achieved >= pp.target - EPS) {
       return i;
     }
@@ -606,7 +597,8 @@ function scanValues(h: HabitHistory, cells: DayCell[]): void {
     if (!entryHasValue(habit, value)) continue;
     h.flags[i] |= F_ACTIVITY;
     h.loggedDays++;
-    if (isAmount && value > 0) {
+    // amounts logged against a limit aren't something to reward
+    if (isAmount && value > 0 && habit.direction !== 'atMost') {
       h.valueTotal += value;
       if (value > h.maxDayValue) h.maxDayValue = value;
     }

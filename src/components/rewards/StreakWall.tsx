@@ -95,14 +95,15 @@ export function StreakWall() {
   }, [overview]);
 
   const rows = useMemo<Row[]>(() => {
+    // track-only habits never have a streak
     const list = habits.flatMap((habit) => {
       const streak = streaks.get(habit.id);
-      if (!streak) return [];
+      if (!streak || habit.kind === 'metric') return [];
       return [{
         habit,
         streak,
         weight: streak.current * UNIT_DAYS[streak.unit],
-        atRisk: openToday.has(habit.id),
+        atRisk: streak.current > 0 && openToday.has(habit.id),
       }];
     });
     list.sort((a, b) => b.weight - a.weight || b.streak.best - a.streak.best || a.habit.order - b.habit.order);
@@ -133,7 +134,7 @@ export function StreakWall() {
           className="py-8"
           icon="🔥"
           title="No habits to track yet"
-          description="Add a habit and this starts filling in from tomorrow."
+          description="Add a habit with a goal and its streak shows up here."
           action={
             <Button icon={<Plus aria-hidden />} onClick={() => openHabitEditor(null)}>
               New habit

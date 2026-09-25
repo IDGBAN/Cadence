@@ -15,8 +15,10 @@ const RUNG_XP = new Map<number, number>(QUIT_MILESTONE_XP.map(([days, xp]) => [d
 
 const TICK_MS = 60_000;
 
+const XP_RUNGS_TEXT = QUIT_MILESTONE_XP.map(([days]) => formatNumber(days, 0));
+
 function rungLabel(days: number): string {
-  if (days >= 365) return '1y';
+  if (days >= 365) return `${Math.round(days / 365)}y`;
   if (days >= 30) return `${Math.round(days / 30)}mo`;
   if (days >= 7) return `${Math.round(days / 7)}w`;
   return `${days}d`;
@@ -30,7 +32,9 @@ function QuitLadder({ habit }: { habit: Habit }) {
   const current = stats.currentDays;
   const next = stats.milestone.next;
   const nextXp = RUNG_XP.get(next);
-  const toGo = Math.max(0, next - current);
+  const toGo = Math.max(1, next - current);
+  // custom targets and runs past a year have a next mark the fixed ladder doesn't show
+  const rungs: number[] = RUNGS.includes(next as (typeof RUNGS)[number]) ? [...RUNGS] : [...RUNGS, next].sort((a, b) => a - b);
 
   return (
     <li className="min-w-0 rounded-2xl border border-line bg-surface-2/40 p-3.5" style={habitStyle(habit.color)}>
@@ -61,7 +65,7 @@ function QuitLadder({ habit }: { habit: Habit }) {
 
       <div className="scroll-fade-x -mx-3.5 mt-0.5 overflow-x-auto px-3.5 py-4">
         <ol className="flex min-w-max items-end gap-0">
-          {RUNGS.map((rung, index) => {
+          {rungs.map((rung, index) => {
             const reached = current >= rung;
             const isNext = rung === next;
             const bonus = RUNG_XP.get(rung);
@@ -79,7 +83,7 @@ function QuitLadder({ habit }: { habit: Habit }) {
                       'flex size-8 items-center justify-center rounded-full border text-[11px] font-bold tabular transition-colors',
                       reached && 'habit-tint-strong habit-border habit-text',
                       !reached && isNext && 'habit-border habit-tint habit-text animate-pulse-ring',
-                      !reached && !isNext && 'border-line bg-surface text-fg-4',
+                      !reached && !isNext && 'border-line bg-surface text-fg-3',
                     )}
                     title={
                       bonus !== undefined
@@ -87,9 +91,14 @@ function QuitLadder({ habit }: { habit: Habit }) {
                         : `${pluralize(rung, 'day')} clean`
                     }
                   >
-                    {reached ? <Check className="size-4" aria-hidden /> : rungLabel(rung)}
+                    {reached ? <Check className="size-4" aria-hidden /> : <span aria-hidden>{rungLabel(rung)}</span>}
+                    <span className="sr-only">
+                      {pluralize(rung, 'day')}
+                      {reached ? ', reached' : ''}
+                      {bonus !== undefined ? `, +${formatNumber(bonus, 0)} XP` : ''}
+                    </span>
                   </span>
-                  <span className={cn('text-[10px] leading-none tabular', reached ? 'text-fg-2' : 'text-fg-4')}>
+                  <span aria-hidden className={cn('text-[10px] leading-none tabular', reached ? 'text-fg-2' : 'text-fg-3')}>
                     {rung}d
                   </span>
                 </div>
@@ -105,11 +114,7 @@ function QuitLadder({ habit }: { habit: Habit }) {
           height={6}
           aria-label={`${Math.round(stats.milestone.progress * 100)}% of the way to ${next} clean days`}
         />
-        <p className="mt-1.5 text-[11px] text-fg-3">
-          {toGo <= 0
-            ? 'Milestone reached. On to the next one.'
-            : `${pluralize(toGo, 'day')} to the ${formatNumber(next, 0)}-day mark.`}
-        </p>
+        <p className="mt-1.5 text-[11px] text-fg-3">{`${pluralize(toGo, 'day')} to the ${formatNumber(next, 0)}-day mark.`}</p>
       </div>
     </li>
   );
@@ -138,7 +143,7 @@ export function QuitLadders() {
           className="py-8"
           icon="🚭"
           title="Nothing to quit yet"
-          description="A quit habit counts up from your last reset and pays XP at 7, 30, 90, 180 and 365 clean days."
+          description={`A quit habit counts up from your last reset and pays XP at ${XP_RUNGS_TEXT.slice(0, -1).join(', ')} and ${XP_RUNGS_TEXT[XP_RUNGS_TEXT.length - 1]} clean days.`}
           action={
             <Button variant="secondary" icon={<Plus aria-hidden />} onClick={() => openHabitEditor(null)}>
               Add a quit habit
