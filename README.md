@@ -19,7 +19,7 @@ I wanted something that handles the messy parts of tracking: a rating out of 10 
 
 ## Running it
 
-You need [Node.js](https://nodejs.org) 20.19 or newer.
+You need [Node.js](https://nodejs.org) 20.19+ or 22.12+ (the tests need 22.12+).
 
 ```bash
 npm install
@@ -53,7 +53,7 @@ All of the habit math lives in pure functions under `src/lib`: statuses, streaks
 
 ```
 src/
-  lib/          habit engine, formatting, XP and achievements, insights, backup
+  lib/          habit engine, formatting, XP and achievements, insights, backup, migration
   store/        app state, persistence, hooks
   components/   ui kit plus one folder per screen
   pages/        routes
@@ -62,6 +62,8 @@ src/
 ```bash
 npm test            # vitest
 npm run typecheck   # tsc
+npm run lint        # oxlint
+npm run check       # all three
 ```
 
 ## License

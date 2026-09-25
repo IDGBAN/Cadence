@@ -3,8 +3,8 @@ import type { AppData, DayKey, Habit, LogEntry, Relapse } from '@/types';
 import { addDays } from './dates';
 import { blankHabit, createInitialData } from './defaults';
 import {
-  activeHabits, completionRate, dailyValueSeries, dayCell, dayCells, dayOverview, dayScore, getEntry,
-  habitStartDay, habitStrength, habitSummary, isDueOn, isEntrySuccess, isScheduledOn, makeCtx,
+  activeHabits, completionRate, dailyValueSeries, dayCell, dayCells, dayOverview, getEntry,
+  habitStartDay, habitSummary, isScheduledOn, makeCtx,
   overallCompletionSeries, periodProgress, periodsInRange, quitStats, relapsesFor, streakInfo, strengthSeries,
 } from './habitMath';
 
@@ -46,6 +46,8 @@ function makeData(
 ): AppData {
   return { ...createInitialData(), habits, logs, relapses };
 }
+
+const strengthOf = (h: Habit, data: AppData) => habitSummary(h, data, ctx).strength;
 
 function fill(from: DayKey, to: DayKey, value: number, into: Record<DayKey, LogEntry> = {}): Record<DayKey, LogEntry> {
   for (let d = from; d <= to; d = addDays(d, 1)) into[d] = entry(value);
@@ -146,50 +148,66 @@ describe('schedule & due', () => {
     expect(isScheduledOn(empty, '2026-09-15')).toBe(true);
   });
 
-  it('isDueOn also requires the habit to have started', () => {
+  it('treats days before the start date as not due', () => {
     const h = habit({ startDate: '2026-09-10', schedule: [1, 3, 5] });
     const data = makeData([h]);
-    expect(isDueOn(h, data, '2026-09-07', ctx)).toBe(false); // Mon before start
-    expect(isDueOn(h, data, '2026-09-14', ctx)).toBe(true);
-    expect(isDueOn(h, data, '2026-09-15', ctx)).toBe(false); // Tue
+    expect(dayCell(h, data, '2026-09-07', ctx).status).toBe('beforeStart'); // Mon
+    expect(dayCell(h, data, '2026-09-14', ctx).status).toBe('missed');
+    expect(dayCell(h, data, '2026-09-15', ctx).status).toBe('notDue'); // Tue
   });
 });
 
-describe('dayScore & isEntrySuccess', () => {
+describe('scoring a single past day', () => {
+  const DAY = '2026-09-16';
   const check = habit({ type: 'check' });
   const water = habit({ type: 'quantity', target: 8, unit: 'glasses' });
   const zero = habit({ type: 'quantity', target: 0 });
   const coffee = habit({ type: 'quantity', direction: 'atMost', target: 2 });
   const sleep = habit({ type: 'rating', target: 7 });
+  const stress = habit({ type: 'rating', direction: 'atMost', target: 3 });
   const gym = habit({ type: 'check', period: 'week', target: 3 });
   const mood = habit({ type: 'rating', kind: 'metric', target: 6 });
 
+  const cell = (h: Habit, e: LogEntry | undefined) =>
+    dayCell(h, makeData([h], e ? { [h.id]: { [DAY]: e } } : {}), DAY, ctx);
+  const outcome = (h: Habit, e: LogEntry | undefined) => {
+    const c = cell(h, e);
+    return [c.status, c.progress];
+  };
+
   it('scores check, atLeast and atMost entries', () => {
-    expect(dayScore(check, entry(1))).toBe(1);
-    expect(dayScore(check, entry(0))).toBe(0);
-    expect(dayScore(check, undefined)).toBe(0);
-    expect(dayScore(water, entry(4))).toBe(0.5);
-    expect(dayScore(water, entry(12))).toBe(1);
-    expect(dayScore(zero, entry(0))).toBe(1);
-    expect(dayScore(coffee, entry(2))).toBe(1);
-    expect(dayScore(coffee, entry(3))).toBe(0.5);
-    expect(dayScore(coffee, entry(6))).toBe(0);
-    expect(dayScore(water, entry(8, { skipped: true }))).toBe(0);
+    expect(outcome(check, entry(1))).toEqual(['done', 1]);
+    expect(outcome(check, entry(0))).toEqual(['missed', 0]);
+    expect(outcome(check, undefined)).toEqual(['missed', 0]);
+    expect(outcome(water, entry(4))).toEqual(['partial', 0.5]);
+    expect(outcome(water, entry(12))).toEqual(['done', 1]);
+    expect(outcome(zero, entry(0))).toEqual(['done', 1]);
+    expect(outcome(coffee, entry(0))).toEqual(['done', 1]);
+    expect(outcome(coffee, entry(2))).toEqual(['done', 1]);
+    expect(outcome(coffee, entry(3))).toEqual(['missed', 0.5]);
+    expect(outcome(coffee, entry(6))).toEqual(['missed', 0]);
+    expect(outcome(coffee, undefined)).toEqual(['missed', 0]);
+    expect(outcome(water, entry(8, { skipped: true }))).toEqual(['skipped', 0]);
   });
 
   it('decides success per goal type', () => {
-    expect(isEntrySuccess(check, entry(1))).toBe(true);
-    expect(isEntrySuccess(check, entry(0))).toBe(false);
-    expect(isEntrySuccess(water, entry(8))).toBe(true);
-    expect(isEntrySuccess(water, entry(7.5))).toBe(false);
-    expect(isEntrySuccess(coffee, entry(0))).toBe(true);
-    expect(isEntrySuccess(coffee, entry(3))).toBe(false);
-    expect(isEntrySuccess(coffee, undefined)).toBe(false);
-    expect(isEntrySuccess(sleep, entry(7))).toBe(true);
-    expect(isEntrySuccess(sleep, entry(6))).toBe(false);
-    expect(isEntrySuccess(gym, entry(1))).toBe(true);
-    expect(isEntrySuccess(mood, entry(9))).toBe(false);
-    expect(isEntrySuccess(water, entry(10, { skipped: true }))).toBe(false);
+    expect(cell(water, entry(7.5)).status).toBe('partial');
+    expect(cell(sleep, entry(7)).status).toBe('done');
+    expect(cell(sleep, entry(6)).status).toBe('partial');
+    expect(cell(gym, entry(1)).status).toBe('done');
+    expect(cell(mood, entry(9)).status).toBe('logged');
+  });
+
+  it('never counts an unrated rating entry as a success', () => {
+    const noteOnly = entry(0, { note: 'rough night' });
+    expect(cell(stress, entry(2)).status).toBe('done');
+    expect(cell(stress, noteOnly).status).toBe('missed');
+    expect(cell(sleep, noteOnly).status).toBe('missed');
+    const data = makeData([stress], { [stress.id]: { [DAY]: noteOnly } });
+    expect(streakInfo(stress, data, ctx).current).toBe(0);
+    expect(habitSummary(stress, data, ctx).totalLoggedDays).toBe(0);
+    const [point] = overallCompletionSeries(data, DAY, DAY, ctx);
+    expect(point.completed).toBe(0);
   });
 });
 
@@ -362,10 +380,10 @@ describe('strength', () => {
   it('rises with adherence following the EMA', () => {
     const h = habit({ type: 'check', startDate: '2026-08-01' });
     const data = makeData([h], { [h.id]: fill('2026-08-01', '2026-09-16', 1) }); // 47 days, today pending
-    expect(habitStrength(h, data, ctx)).toBeCloseTo(1 - Math.pow(M_DAY, 47), 10);
+    expect(strengthOf(h, data)).toBeCloseTo(1 - Math.pow(M_DAY, 47), 10);
     const series = strengthSeries(h, data, '2026-08-01', TODAY, ctx);
     for (let i = 1; i < series.length; i++) expect(series[i].value).toBeGreaterThanOrEqual(series[i - 1].value);
-    expect(series[series.length - 1].value).toBeCloseTo(habitStrength(h, data, ctx), 12);
+    expect(series[series.length - 1].value).toBeCloseTo(strengthOf(h, data), 12);
   });
 
   it('decays after misses', () => {
@@ -374,7 +392,7 @@ describe('strength', () => {
     const series = strengthSeries(h, data, '2026-09-06', '2026-09-16', ctx);
     expect(series[0].value).toBeCloseTo(1 - Math.pow(M_DAY, 37), 10);
     expect(series[10].value).toBeCloseTo((1 - Math.pow(M_DAY, 37)) * Math.pow(M_DAY, 10), 10);
-    expect(habitStrength(h, data, ctx)).toBeLessThan(series[0].value);
+    expect(strengthOf(h, data)).toBeLessThan(series[0].value);
   });
 
   it('skipped and non-due days leave strength unchanged; carries forward past today', () => {
@@ -382,7 +400,7 @@ describe('strength', () => {
     const logs = fill('2026-09-10', '2026-09-16', 1);
     logs['2026-09-12'] = entry(0, { skipped: true });
     const data = makeData([h], { [h.id]: logs });
-    expect(habitStrength(h, data, ctx)).toBeCloseTo(1 - Math.pow(M_DAY, 6), 10);
+    expect(strengthOf(h, data)).toBeCloseTo(1 - Math.pow(M_DAY, 6), 10);
     const series = strengthSeries(h, data, '2026-09-08', '2026-09-20', ctx);
     expect(series[0].value).toBe(0); // before start
     expect(series[4].value).toBe(series[3].value); // Sep 12 skipped
@@ -392,7 +410,7 @@ describe('strength', () => {
   it('is 0 for metrics', () => {
     const mood = habit({ type: 'rating', kind: 'metric' });
     const data = makeData([mood], { [mood.id]: fill('2026-09-01', TODAY, 8) });
-    expect(habitStrength(mood, data, ctx)).toBe(0);
+    expect(strengthOf(mood, data)).toBe(0);
   });
 });
 
@@ -505,7 +523,7 @@ describe('weekly habits', () => {
 
   it('strength uses completed periods (and a successful current one)', () => {
     const expected = (1 - M_WEEK) * M_WEEK + (2 / 3) * (1 - M_WEEK);
-    expect(habitStrength(gym, data, ctx)).toBeCloseTo(expected, 10);
+    expect(strengthOf(gym, data)).toBeCloseTo(expected, 10);
     const series = strengthSeries(gym, data, '2026-09-05', TODAY, ctx);
     expect(series[0].value).toBe(0); // Sep 5: first week not finished yet
     expect(series[1].value).toBeCloseTo(1 - M_WEEK, 10); // Sep 6: week closed
@@ -636,8 +654,8 @@ describe('quit habits', () => {
 
   it('strength is lowered by relapses and summary uses clean days', () => {
     const clean = makeData([quit]);
-    expect(habitStrength(quit, clean, ctx)).toBeCloseTo(1 - Math.pow(M_DAY, 48), 10);
-    expect(habitStrength(quit, data, ctx)).toBeLessThan(habitStrength(quit, clean, ctx));
+    expect(strengthOf(quit, clean)).toBeCloseTo(1 - Math.pow(M_DAY, 48), 10);
+    expect(strengthOf(quit, data)).toBeLessThan(strengthOf(quit, clean));
     const summary = habitSummary(quit, data, ctx);
     expect(summary.totalSuccesses).toBe(45);
     expect(summary.completionRate).toBeCloseTo(quitStats(quit, data, ctx).cleanRate, 12);
@@ -806,7 +824,7 @@ describe('habitSummary', () => {
     expect(s.totalSuccesses).toBe(12);
     expect(s.totalLoggedDays).toBe(12);
     expect(s.totalValue).toBe(0);
-    expect(s.strength).toBeCloseTo(habitStrength(h, data, ctx), 12);
+    expect(s.strength).toBeCloseTo(strengthSeries(h, data, TODAY, TODAY, ctx)[0].value, 12);
   });
 
   it('totals for quantity and period habits', () => {
@@ -851,5 +869,60 @@ describe('habitSummary', () => {
     const elapsed = performance.now() - t0;
     // ~30ms locally; loose bound so slow CI doesn't flake
     expect(elapsed).toBeLessThan(250);
+  });
+});
+
+describe('at-most goals and period edge cases', () => {
+  it('judges an at-most weekly goal on the week, not on each day', () => {
+    const drinks = habit({ type: 'quantity', period: 'week', direction: 'atMost', target: 14 });
+    const data = makeData([drinks], { [drinks.id]: { '2026-09-15': entry(6), '2026-09-16': entry(0) } });
+    expect(dayCell(drinks, data, '2026-09-15', ctx).status).toBe('logged');
+    expect(dayCell(drinks, data, '2026-09-16', ctx).status).toBe('logged');
+    expect(dayCell(drinks, data, '2026-09-14', ctx).status).toBe('empty');
+
+    const within = makeData([drinks], { [drinks.id]: { [TODAY]: entry(3) } });
+    const over = makeData([drinks], { [drinks.id]: { [TODAY]: entry(20) } });
+    expect(dayOverview(within, TODAY, ctx).items[0].completeForDay).toBe(true);
+    expect(dayOverview(over, TODAY, ctx).items[0].completeForDay).toBe(false);
+  });
+
+  it('caps a check target at the days the month actually has', () => {
+    const daily = habit({ type: 'check', period: 'month', target: 31, startDate: '2026-02-01' });
+    const logs = fill('2026-02-01', '2026-02-28', 1);
+    fill('2026-06-01', '2026-06-30', 1, logs);
+    const data = makeData([daily], { [daily.id]: logs });
+    expect(periodProgress(daily, data, '2026-02-10', ctx)).toMatchObject({ target: 28, achieved: 28, success: true });
+    expect(periodProgress(daily, data, '2026-06-10', ctx)).toMatchObject({ target: 30, achieved: 30, success: true });
+  });
+
+  it('ignores an excused day before the start date', () => {
+    const h = habit({ type: 'check', startDate: '2026-09-10' });
+    const logs = fill('2026-09-10', '2026-09-16', 1);
+    logs['2026-09-05'] = entry(0, { skipped: true, note: 'Sick' });
+    const data = makeData([h], { [h.id]: logs });
+    expect(habitStartDay(h, data, ctx)).toBe('2026-09-10');
+    expect(completionRate(h, data, '2026-09-01', '2026-09-16', ctx)).toMatchObject({ successes: 7, opportunities: 7 });
+  });
+
+  it('leaves forgotten days of a daily limit out of the value series', () => {
+    const coffee = habit({ type: 'quantity', direction: 'atMost', target: 2 });
+    const data = makeData([coffee], { [coffee.id]: { '2026-09-15': entry(5) } });
+    expect(dailyValueSeries(coffee, data, '2026-09-14', '2026-09-16', ctx).map((p) => p.value)).toEqual([null, 5, null]);
+  });
+
+  it('counts a limit broken today in the rate as well as the streak', () => {
+    const coffee = habit({ type: 'quantity', direction: 'atMost', target: 2, startDate: '2026-09-14' });
+    const data = makeData([coffee], { [coffee.id]: { ...fill('2026-09-14', '2026-09-16', 1), [TODAY]: entry(5) } });
+    expect(streakInfo(coffee, data, ctx).current).toBe(0);
+    expect(completionRate(coffee, data, '2026-09-14', TODAY, ctx)).toMatchObject({ successes: 3, opportunities: 4 });
+  });
+
+  it('counts a week in only one of two back-to-back windows', () => {
+    const gym = habit({ type: 'check', period: 'week', target: 1, startDate: '2026-08-03' });
+    const data = makeData([gym], { [gym.id]: { '2026-08-18': entry(1) } });
+    const earlier = completionRate(gym, data, '2026-08-10', '2026-08-19', ctx);
+    const later = completionRate(gym, data, '2026-08-20', '2026-08-30', ctx);
+    expect(earlier).toMatchObject({ successes: 0, opportunities: 1 });
+    expect(later).toMatchObject({ successes: 1, opportunities: 2 });
   });
 });

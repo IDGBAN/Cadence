@@ -11,8 +11,8 @@ import {
   Upload,
 } from 'lucide-react';
 import type { AppData } from '@/types';
-import { downloadBackup, downloadCsv, readBackup, type BackupDropReport } from '@/lib/backup';
-import { generateDemoData } from '@/lib/demo';
+import { MAX_BACKUP_BYTES, readBackup, type BackupDropReport } from '@/lib/backup';
+import { DEMO_DAYS, exportBackupWithToast, exportCsvWithToast, loadDemoData } from '@/lib/dataActions';
 import { formatNumber } from '@/lib/format';
 import { diffDays, formatDayShort, formatTime, logicalDayOf, relativeDayLabel, toDayKey } from '@/lib/dates';
 import { actions, flushPersistence, getData, useStore } from '@/store/store';
@@ -24,7 +24,6 @@ import { SettingDivider, SettingNote, SettingRow, SettingsSection } from './Sett
 import { ImportPreviewModal, summarizeBackup, type BackupSummary } from './ImportPreview';
 
 const BACKUP_STALE_DAYS = 14;
-const DEMO_DAYS = 150;
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
@@ -80,15 +79,22 @@ export function DataSection() {
   const data = useData();
   const today = useToday();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState<
-    { data: AppData; summary: BackupSummary; fileName: string; dropped: BackupDropReport } | null
-  >(null);
+  const [pending, setPending] = useState<{
+    data: AppData;
+    summary: BackupSummary;
+    fileName: string;
+    dropped: BackupDropReport;
+    hasSettings: boolean;
+  } | null>(null);
   const [importing, setImporting] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
   const [storageKey, setStorageKey] = useState(0);
   const storage = useStorageInfo(storageKey);
 
-  const refreshStorage = useCallback(() => setStorageKey((k) => k + 1), []);
+  // writes are debounced, so measure once the change has actually landed
+  const refreshStorage = useCallback(() => {
+    void flushPersistence().finally(() => setStorageKey((k) => k + 1));
+  }, []);
 
   const saveFailed = useStore((s) => s.storageError?.kind === 'write');
   const [retrying, setRetrying] = useState(false);
@@ -102,7 +108,7 @@ export function DataSection() {
     const stillFailing = useStore.getState().storageError?.kind === 'write';
     toast(
       stillFailing
-        ? { title: 'Still can’t save', description: 'Keep this tab open and export a backup.', tone: 'danger', icon: '⚠️' }
+        ? { title: "Still can't save", description: 'Keep this tab open and export a backup.', tone: 'danger', icon: '⚠️' }
         : { title: 'Saved', description: 'Everything is stored in this browser again.', tone: 'success', icon: '💾' },
     );
   }, []);
@@ -112,40 +118,22 @@ export function DataSection() {
   const backupAgeDays = lastBackupDay === undefined ? Infinity : Math.max(0, diffDays(lastBackupDay, today));
   const backupStale = backupAgeDays >= BACKUP_STALE_DAYS;
 
-  const exportBackup = useCallback(() => {
-    try {
-      downloadBackup(getData());
-      actions().markBackup();
-      toast({
-        title: 'Backup saved',
-        description: 'Keep the .json file somewhere safe. It restores everything.',
-        tone: 'success',
-        icon: '💾',
-      });
-    } catch {
-      toast({ title: 'Could not save the backup', description: 'Your browser blocked the download.', tone: 'danger' });
-    }
-  }, []);
-
-  const exportCsvFile = useCallback(() => {
-    try {
-      downloadCsv(getData());
-      toast({ title: 'CSV exported', description: 'One row per logged value, ready for a spreadsheet.', tone: 'success', icon: '📊' });
-    } catch {
-      toast({ title: 'Could not export the CSV', description: 'Your browser blocked the download.', tone: 'danger' });
-    }
-  }, []);
-
   const onFilePicked = async (file: File | undefined) => {
     if (!file) return;
     setImporting(true);
     try {
-      const text = await file.text();
-      const { data: parsed, dropped } = readBackup(text);
-      setPending({ data: parsed, summary: summarizeBackup(parsed, text), fileName: file.name, dropped });
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('This file is too big to be a Cadence backup.');
+      const { data: parsed, dropped, hasSettings, exportedAt } = readBackup(await file.text());
+      setPending({
+        data: parsed,
+        summary: summarizeBackup(parsed, { hasSettings, exportedAt }),
+        fileName: file.name,
+        dropped,
+        hasSettings,
+      });
     } catch (error) {
       toast({
-        title: 'That file can’t be imported',
+        title: "That file can't be imported",
         description: error instanceof Error ? error.message : 'The file could not be read.',
         tone: 'danger',
         icon: '⚠️',
@@ -159,7 +147,8 @@ export function DataSection() {
 
   const confirmImport = () => {
     if (!pending) return;
-    actions().replaceData(pending.data);
+    // a file without settings would otherwise reset theme, week start and day start to the defaults
+    actions().replaceData(pending.hasSettings ? pending.data : { ...pending.data, settings: getData().settings });
     setPending(null);
     refreshStorage();
     toast({
@@ -178,7 +167,7 @@ export function DataSection() {
       description:
         `This replaces everything in Cadence with ${DEMO_DAYS} days of sample history, including streaks, relapses, ` +
         'notes and correlations. Export a backup first if you want to keep your own logs. ' +
-        'You can remove the demo later with “Delete all data”.',
+        'You can remove the demo later with "Delete all data".',
       confirmLabel: 'Load demo data',
       cancelLabel: 'Cancel',
       icon: '🧪',
@@ -188,16 +177,7 @@ export function DataSection() {
     // let the spinner paint before the generator blocks the main thread
     await new Promise((resolve) => setTimeout(resolve, 0));
     try {
-      const settings = getData().settings;
-      const demo = generateDemoData(DEMO_DAYS, 42, {
-        dayStartHour: settings.dayStartHour,
-        weekStartsOn: settings.weekStartsOn,
-      });
-      actions().replaceData({
-        ...demo,
-        settings: { ...settings },
-        meta: { ...demo.meta, onboarded: true },
-      });
+      if (!loadDemoData()) return;
       refreshStorage();
       toast({
         title: 'Demo data loaded',
@@ -217,7 +197,7 @@ export function DataSection() {
       title: 'Delete all data?',
       description:
         'Every habit, log, note, streak and achievement in this browser is permanently deleted, and you go back to ' +
-        'the welcome screen. This can’t be undone, so export a backup first if you might want it back.',
+        "the welcome screen. This can't be undone, so export a backup first if you might want it back.",
       confirmLabel: 'Delete everything',
       cancelLabel: 'Keep my data',
       tone: 'danger',
@@ -245,13 +225,13 @@ export function DataSection() {
           >
             <TriangleAlert className="size-5 shrink-0 text-danger" aria-hidden="true" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-fg">Cadence can’t save to this browser</p>
+              <p className="text-sm font-semibold text-fg">Cadence can't save to this browser</p>
               <p className="mt-0.5 text-xs leading-relaxed text-fg-3">
                 Your recent changes are only in this tab. Export a backup now, then try saving again.
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
-              <Button size="sm" variant="danger" icon={<Download aria-hidden="true" />} onClick={exportBackup}>
+              <Button size="sm" variant="danger" icon={<Download aria-hidden="true" />} onClick={exportBackupWithToast}>
                 Export
               </Button>
               <Button size="sm" variant="secondary" loading={retrying} onClick={retrySave}>
@@ -264,7 +244,7 @@ export function DataSection() {
           label="Backup"
           description="A single .json file with every habit, log, relapse and achievement. Import it here to restore."
           control={
-            <Button variant="secondary" icon={<Download aria-hidden="true" />} onClick={exportBackup}>
+            <Button variant="secondary" icon={<Download aria-hidden="true" />} onClick={exportBackupWithToast}>
               Export backup
             </Button>
           }
@@ -290,7 +270,7 @@ export function DataSection() {
 
         <SettingRow
           label="Import a backup"
-          description="Replaces everything in the app. You’ll see a preview first."
+          description="Replaces everything in the app. You'll see a preview first."
           control={
             <>
               <input
@@ -318,7 +298,7 @@ export function DataSection() {
           label="Export as CSV"
           description="Long format (one row per logged value, relapse and journal note) for spreadsheets and analysis."
           control={
-            <Button variant="secondary" icon={<FileSpreadsheet aria-hidden="true" />} onClick={exportCsvFile}>
+            <Button variant="secondary" icon={<FileSpreadsheet aria-hidden="true" />} onClick={exportCsvWithToast}>
               Export CSV
             </Button>
           }
@@ -341,7 +321,7 @@ export function DataSection() {
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <Button variant="ghost" icon={<Download aria-hidden="true" />} onClick={exportBackup}>
+              <Button variant="ghost" icon={<Download aria-hidden="true" />} onClick={exportBackupWithToast}>
                 Back up first
               </Button>
               <Button icon={<FlaskConical aria-hidden="true" />} loading={demoBusy} onClick={() => void loadDemo()}>
@@ -383,7 +363,7 @@ export function DataSection() {
                   ? storage.quota
                     ? `used of about ${formatBytes(storage.quota)} available`
                     : 'used by Cadence in this browser'
-                  : 'Your browser doesn’t share storage numbers.'}
+                  : "Your browser doesn't share storage numbers."}
               </p>
             </div>
             <div className="rounded-xl border border-line bg-surface-2 p-3.5">
@@ -400,7 +380,7 @@ export function DataSection() {
               </p>
               <p className="mt-1 text-[12px] leading-snug text-fg-3">
                 {storage.persisted === true
-                  ? 'The browser won’t evict your habits to free up space.'
+                  ? "The browser won't evict your habits to free up space."
                   : 'Clearing site data or a browser cleanup would remove your habits, so keep a backup.'}
               </p>
             </div>

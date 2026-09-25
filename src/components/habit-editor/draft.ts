@@ -216,7 +216,7 @@ export function validateDraft(draft: Habit, now = new Date()): DraftErrors {
   if (draft.type === 'quit') {
     const at = new Date(draft.quitStart).getTime();
     if (!Number.isFinite(at)) errors.quitStart = 'Pick when you quit.';
-    else if (at > now.getTime() + 60_000) errors.quitStart = 'The quit date can’t be in the future.';
+    else if (at > now.getTime() + 60_000) errors.quitStart = "The quit date can't be in the future.";
   }
 
   if (!isDayKeyLike(draft.startDate)) errors.startDate = 'Pick a valid start date.';

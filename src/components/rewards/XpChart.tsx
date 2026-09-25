@@ -40,7 +40,7 @@ export function XpChart() {
       }
       height={210}
       empty={total === 0}
-      emptyLabel="Log a habit and your first bar shows up here."
+      emptyLabel="No XP in the last 30 days. Log a habit to add a bar."
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: -20 }} barCategoryGap="18%">

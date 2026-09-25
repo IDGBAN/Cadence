@@ -1,9 +1,11 @@
 import type { AppData, DayKey, Habit } from '@/types';
 import type { EngineCtx } from '@/lib/habitMath';
-import { dailyValueSeries } from '@/lib/habitMath';
-import { addDays, diffDays } from '@/lib/dates';
+import { activeHabits } from '@/lib/habitMath';
+import { addDays, diffDays, logicalDayOf } from '@/lib/dates';
 import { formatMinutes, formatNumber, formatPercent, formatValue } from '@/lib/format';
-import type { Comparison, Confidence, Strength } from '@/lib/insights';
+import { pairedPoints, type Comparison, type Confidence, type PairPoint, type Strength } from '@/lib/insights';
+
+export type { PairPoint };
 
 export type RangeKey = '30d' | '90d' | '1y' | 'all';
 
@@ -23,10 +25,15 @@ export interface ResolvedRange {
   label: string;
 }
 
+// archived habits are left out everywhere else on the page, so they don't stretch "All" either
 export function earliestDay(data: AppData, ctx: EngineCtx): DayKey {
   let earliest: DayKey | null = null;
-  for (const habit of data.habits) {
+  for (const habit of activeHabits(data)) {
     if (habit.startDate && (earliest === null || habit.startDate < earliest)) earliest = habit.startDate;
+    if (habit.type === 'quit' && Number.isFinite(Date.parse(habit.quitStart))) {
+      const quitDay = logicalDayOf(habit.quitStart, ctx.dayStartHour);
+      if (earliest === null || quitDay < earliest) earliest = quitDay;
+    }
     const logs = data.logs[habit.id];
     if (!logs) continue;
     for (const day in logs) if (earliest === null || day < earliest) earliest = day;
@@ -39,8 +46,7 @@ export function resolveRange(key: RangeKey, data: AppData, ctx: EngineCtx): Reso
   const option = INSIGHT_RANGES.find((r) => r.value === key) ?? INSIGHT_RANGES[1];
   const end = ctx.today;
   const oldest = earliestDay(data, ctx);
-  const windowStart = option.days === null ? oldest : addDays(end, -(option.days - 1));
-  const start = windowStart < oldest && option.days === null ? oldest : windowStart;
+  const start = option.days === null ? oldest : addDays(end, -(option.days - 1));
   const days = Math.max(1, diffDays(start, end) + 1);
   const previousEnd = addDays(start, -1);
   const previousStart = addDays(previousEnd, -(days - 1));
@@ -62,31 +68,11 @@ export function analysisEnd(ctx: EngineCtx, end: DayKey): DayKey {
 
 export type Lag = 0 | 1;
 
-export interface PairPoint {
-  // driver's day; the outcome is `lag` days later
-  day: DayKey;
-  x: number;
-  y: number;
-}
-
-// must match insights.correlate so points.length equals the reported n
 export function pairedValues(
   data: AppData, ctx: EngineCtx, driver: Habit, outcome: Habit,
   opts: { start: DayKey; end: DayKey; lag?: Lag },
 ): PairPoint[] {
-  const lag: Lag = opts.lag === 1 ? 1 : 0;
-  const hi = analysisEnd(ctx, opts.end);
-  if (hi < opts.start) return [];
-  const xs = dailyValueSeries(driver, data, opts.start, hi, ctx);
-  const ys = driver.id === outcome.id ? xs : dailyValueSeries(outcome, data, opts.start, hi, ctx);
-  const out: PairPoint[] = [];
-  for (let i = 0; i + lag < xs.length; i++) {
-    const x = xs[i].value;
-    const y = ys[i + lag].value;
-    if (x === null || y === null || !Number.isFinite(x) || !Number.isFinite(y)) continue;
-    out.push({ day: xs[i].day, x, y });
-  }
-  return out;
+  return pairedPoints(data, ctx, driver, outcome, opts);
 }
 
 export interface Fit {

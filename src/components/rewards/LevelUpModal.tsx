@@ -38,21 +38,24 @@ export function LevelUpModal({ level, onClose }: LevelUpModalProps) {
     return () => window.clearTimeout(timer);
   }, [open]);
 
+  // closing plays Modal's exit and hands focus back before the queue moves on
   const close = () => setOpen(false);
 
   const nextLevel = level + 1;
+  const title = levelTitle(level);
+  const newTitle = title !== levelTitle(level - 1);
   const nextAt = xpForLevel(nextLevel);
   const toGo = Math.max(0, nextAt - xp.total);
 
   return (
     <Modal
-      open
-      onClose={onClose}
+      open={open}
+      onClose={close}
       size="sm"
       aria-label={`You reached level ${level}`}
       className="text-center"
       footer={
-        <Button data-autofocus onClick={onClose} fullWidth>
+        <Button data-autofocus onClick={close} fullWidth>
           Continue
         </Button>
       }
@@ -80,9 +83,11 @@ export function LevelUpModal({ level, onClose }: LevelUpModalProps) {
         <h2 className="mt-2 font-display text-[28px] font-bold leading-tight tracking-tight text-fg">
           Level {level}
         </h2>
-        <p className="mt-1 text-sm text-fg-2">
-          You are now <span className="font-semibold text-gradient">{levelTitle(level)}</span>
-        </p>
+        {newTitle && (
+          <p className="mt-1 text-sm text-fg-2">
+            New title: <span className="font-semibold text-gradient">{title}</span>
+          </p>
+        )}
 
         <div className="mt-5 w-full rounded-xl border border-line bg-surface-2/60 px-4 py-3 text-left">
           <div className="flex items-baseline justify-between gap-3">

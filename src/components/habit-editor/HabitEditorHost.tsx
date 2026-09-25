@@ -119,8 +119,8 @@ export function HabitEditorHost() {
       const discard = await confirmDialog({
         title: isEdit ? 'Discard your changes?' : 'Discard this habit?',
         description: isEdit
-          ? 'Your edits won’t be saved.'
-          : 'The habit hasn’t been created yet.',
+          ? "Your edits won't be saved."
+          : "The habit hasn't been created yet.",
         confirmLabel: 'Discard',
         cancelLabel: 'Keep editing',
         tone: 'danger',

@@ -1,11 +1,11 @@
 {
   "name": "cadence",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A local-first habit tracker with streaks, XP and correlations between habits.",
   "type": "module",
   "engines": {
-    "node": ">=20.19"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,9 @@
     "preview": "vite preview",
     "start": "vite build && vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "lint": "oxlint",
+    "test": "vitest run",
+    "check": "tsc --noEmit && oxlint && vitest run"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.20",
@@ -38,6 +40,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.85.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",

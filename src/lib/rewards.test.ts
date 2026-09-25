@@ -687,3 +687,22 @@ describe('performance', () => {
     expect(cachedMs).toBeLessThan(5);
   });
 });
+
+describe('at-most goals', () => {
+  it('pays a weekly limit only for the week, never per day of consumption', () => {
+    const takeaway = habit({ type: 'quantity', period: 'week', direction: 'atMost', target: 3, startDate: '2026-09-07' });
+    const some = makeData([takeaway], { [takeaway.id]: { '2026-09-08': entry(1), '2026-09-09': entry(1), '2026-09-10': entry(1) } });
+    const none = makeData([takeaway], { [takeaway.id]: { '2026-09-08': entry(0) } });
+    const over = makeData([takeaway], { [takeaway.id]: fill('2026-09-07', '2026-09-13', 5) });
+    expect(computeXp(some, ctx).total).toBe(computeXp(none, ctx).total);
+    expect(computeXp(over, ctx).total).toBeLessThan(computeXp(none, ctx).total);
+    expect(statusOf(over, 'checkins-100').current).toBe(0);
+  });
+
+  it('keeps amounts logged against a limit out of volume badges', () => {
+    const screen = habit({ type: 'duration', direction: 'atMost', target: 120 });
+    const data = makeData([screen], { [screen.id]: { '2026-09-16': entry(250) } });
+    expect(statusOf(data, 'deep-focus').unlocked).toBe(false);
+    expect(statusOf(data, 'hours-10').current).toBe(0);
+  });
+});

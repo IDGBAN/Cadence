@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Crown } from 'lucide-react';
 import type { DayKey } from '@/types';
+import { useLayer } from '@/components/ui/layers';
 import { useData, useEngineCtx, useReducedMotion } from '@/store/hooks';
 import { useXp } from '@/store/rewardHooks';
 import { perfectDays } from '@/lib/rewards';
@@ -22,8 +23,17 @@ export function PerfectDayOverlay({ day, onDone }: PerfectDayOverlayProps) {
   const xp = useXp();
   const reduced = useReducedMotion();
   const fired = useRef(false);
+  const finished = useRef(false);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
+
+  // the timer, Escape and a click can all land, including during the exit animation
+  const finish = () => {
+    if (finished.current) return;
+    finished.current = true;
+    doneRef.current();
+  };
+  useLayer(true, finish);
 
   const count = useMemo(() => perfectDays(data, ctx).length, [data, ctx]);
   const dayXp = xp.byDay[day] ?? 0;
@@ -35,16 +45,8 @@ export function PerfectDayOverlay({ day, onDone }: PerfectDayOverlayProps) {
       playSound('perfect');
       haptic([14, 60, 14, 60, 22]);
     }
-    const timer = window.setTimeout(() => doneRef.current(), AUTO_DISMISS_MS);
+    const timer = window.setTimeout(finish, AUTO_DISMISS_MS);
     return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') doneRef.current();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   return (
@@ -61,12 +63,10 @@ export function PerfectDayOverlay({ day, onDone }: PerfectDayOverlayProps) {
         type="button"
         aria-label="Dismiss"
         className="absolute inset-0 cursor-default"
-        onClick={() => doneRef.current()}
+        onClick={finish}
       />
 
       <motion.div
-        role="status"
-        aria-live="polite"
         className="card sheen relative w-full max-w-sm overflow-hidden px-6 py-7 text-center shadow-pop"
         initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.86, y: 18 }}
         animate={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}

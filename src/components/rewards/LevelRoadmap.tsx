@@ -75,6 +75,7 @@ export function LevelRoadmap() {
                     rung.current ? 'text-fg' : 'text-fg-2',
                   )}
                 >
+                  <span className="sr-only">Level {rung.level}: </span>
                   {rung.title}
                   {rung.current && <span className="ml-2 text-[11px] font-medium text-xp light:text-[color-mix(in_oklab,var(--xp)_82%,black)]">you are here</span>}
                 </span>

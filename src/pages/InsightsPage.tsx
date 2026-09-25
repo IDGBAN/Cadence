@@ -48,7 +48,7 @@ export default function InsightsPage() {
   const pair = usePairSelection(correlations.habits);
 
   const habitsById = new Map(habits.map((habit) => [habit.id, habit] as const));
-  const strongest = correlations.pairs[0];
+  const { strongest } = correlations;
   const suggested = strongest ? { driverId: strongest.driver.id, outcomeId: strongest.outcome.id } : null;
 
   return (
@@ -121,7 +121,7 @@ export default function InsightsPage() {
 
           <Leaderboard rows={rows} range={range} />
 
-          <div className="grid gap-10 md:gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] xl:gap-8">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-10 md:gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] xl:gap-8">
             <WeekdayGrid rows={weekdayRows} overall={overall} />
             <CategoryBreakdown categories={categories} />
           </div>

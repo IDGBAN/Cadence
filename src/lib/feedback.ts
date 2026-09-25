@@ -16,6 +16,9 @@ export type SoundName =
 const MASTER_GAIN = 0.15;
 // drops the repeat from a fast double tap
 const RETRIGGER_GUARD_MS = 35;
+// a suspended context's clock stands still, so sounds queued on it would all play at once when it wakes.
+// if it takes longer than this to resume, the moment has passed and the sound is dropped
+const MAX_SOUND_DELAY_MS = 250;
 
 interface AudioEngine {
   ctx: AudioContext;
@@ -26,6 +29,13 @@ let engine: AudioEngine | null = null;
 let audioUnsupported = false;
 const lastPlayedAt = new Map<SoundName, number>();
 
+// chrome blocks and logs audio and vibrate() until the user has interacted with the page
+function hasUserActivation(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  return !activation || activation.hasBeenActive;
+}
+
 // created on first use so it starts inside a user gesture (autoplay policy)
 function getAudio(): AudioEngine | null {
   if (audioUnsupported) return null;
@@ -34,6 +44,7 @@ function getAudio(): AudioEngine | null {
       audioUnsupported = true;
       return null;
     }
+    if (!hasUserActivation()) return null;
     const Ctor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) {
       audioUnsupported = true;
@@ -62,9 +73,6 @@ function getAudio(): AudioEngine | null {
       audioUnsupported = true;
       return null;
     }
-  }
-  if (engine.ctx.state !== 'running') {
-    engine.ctx.resume().catch(() => undefined);
   }
   return engine;
 }
@@ -101,10 +109,10 @@ function playVoice({ ctx, out }: AudioEngine, start: number, v: Voice): void {
   env.connect(out);
   osc.start(t0);
   osc.stop(t0 + attack + decay + 0.05);
-  osc.onended = () => {
+  osc.addEventListener('ended', () => {
     osc.disconnect();
     env.disconnect();
-  };
+  });
 }
 
 function bell(freq: number, at: number, decay: number, gain: number): Voice[] {
@@ -179,6 +187,20 @@ export function playSound(name: SoundName): void {
   const audio = getAudio();
   if (!audio) return;
   lastPlayedAt.set(name, now);
+  if (audio.ctx.state === 'running') {
+    schedule(audio, name);
+    return;
+  }
+  audio.ctx.resume().then(
+    () => {
+      const later = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (later - now <= MAX_SOUND_DELAY_MS) schedule(audio, name);
+    },
+    () => undefined,
+  );
+}
+
+function schedule(audio: AudioEngine, name: SoundName): void {
   try {
     const start = audio.ctx.currentTime + 0.01;
     for (const voice of SOUNDS[name]()) playVoice(audio, start, voice);
@@ -349,10 +371,7 @@ export function confettiCelebration(kind: 'perfect' | 'levelUp' | 'achievement' 
 }
 
 export function haptic(pattern: number | number[] = 10): void {
-  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
-  // chrome blocks and logs vibrate() until the user has interacted with the page
-  const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
-  if (activation && !activation.hasBeenActive) return;
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function' || !hasUserActivation()) return;
   try {
     navigator.vibrate(pattern);
   } catch {

@@ -25,6 +25,18 @@ function isPeriodGoal(habit: Habit): boolean {
   return habit.kind === 'goal' && habit.type !== 'rating' && habit.type !== 'quit' && habit.period !== 'day';
 }
 
+// a weekly or monthly limit can only be met once the period is over, so logging never "completes" it
+function isPeriodLimit(habit: Habit): boolean {
+  return isPeriodGoal(habit) && habit.type !== 'check' && habit.direction === 'atMost';
+}
+
+const announcedPeriods = new Set<string>();
+
+/** Whether a "goal hit" toast already went out for this habit's period, so CelebrationHost doesn't repeat it. */
+export function periodGoalAnnounced(habitId: string, periodStart: DayKey): boolean {
+  return announcedPeriods.has(`${habitId}:${periodStart}`);
+}
+
 function periodText(habit: Habit, p: PeriodProgress): string {
   if (habit.type === 'duration') return `${formatMinutes(p.achieved)} / ${formatMinutes(p.target)}`;
   return `${formatNumber(p.achieved, 1)}/${formatNumber(p.target, 1)}`;
@@ -53,8 +65,8 @@ export function undoAction(): NonNullable<ToastInput['action']> {
 
 function rejectFuture(day: DayKey): void {
   toast({
-    title: 'Can’t log the future',
-    description: `${formatDayShort(day)} hasn’t happened yet.`,
+    title: "Can't log the future",
+    description: `${formatDayShort(day)} hasn't happened yet.`,
     tone: 'danger',
     icon: '⏳',
   });
@@ -77,7 +89,8 @@ function snapshot(habit: Habit, day: DayKey): Snapshot {
   }
   if (isPeriodGoal(habit)) {
     const period = periodProgress(habit, data, day, ctx);
-    return { complete: period.success, score: period.progress, raw: period.achieved, period };
+    const complete = period.success && !isPeriodLimit(habit);
+    return { complete, score: period.progress, raw: period.achieved, period };
   }
   const cell = dayCell(habit, data, day, ctx);
   return { complete: cell.status === 'done', score: cell.progress, raw: finite(cell.value) };
@@ -99,6 +112,7 @@ function celebrateComplete(habit: Habit, after: Snapshot, sourceEl?: Element | n
   else confettiBurst(undefined, colors);
   haptic([12, 40, 12]);
   if (isPeriodGoal(habit) && after.period) {
+    announcedPeriods.add(`${habit.id}:${after.period.start}`);
     toast({
       title: `${periodLabel(habit.period)} goal hit`,
       description: `${habit.name} · ${periodText(habit, after.period)}`,
@@ -179,7 +193,7 @@ export function setSkippedWithFeedback(habitId: string, day: DayKey, skipped: bo
   toast({
     title: skipped ? 'Day skipped' : 'Skip removed',
     description: skipped
-      ? `${habit.name} · ${formatDayShort(day)} won’t count for or against your streak.`
+      ? `${habit.name} · ${formatDayShort(day)} won't count for or against your streak.`
       : `${habit.name} · ${formatDayShort(day)} counts again.`,
     icon: skipped ? '⏭️' : '↩️',
     action: undoAction(),
@@ -202,7 +216,7 @@ export function skipManyWithFeedback(habitIds: readonly string[], day: DayKey, r
   haptic(8);
   toast({
     title: `${pluralize(count, 'habit')} skipped${reason?.trim() ? ` · ${reason.trim()}` : ''}`,
-    description: `${formatDayShort(day)} won’t count for or against those streaks.`,
+    description: `${formatDayShort(day)} won't count for or against those streaks.`,
     icon: '⏭️',
     action: undoAction(),
   });

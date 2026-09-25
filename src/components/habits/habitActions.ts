@@ -26,7 +26,7 @@ export function celebrateCreation(habit: Habit, sourceEl?: Element | null): void
   haptic([10, 30, 10]);
   toast({
     title: `${habit.name} added`,
-    description: 'It’s on your Today list.',
+    description: "It's on your Today list.",
     tone: 'success',
     icon: habit.icon,
     action: { label: 'Edit', onClick: () => useUI.getState().openHabitEditor(habit.id) },
@@ -59,7 +59,7 @@ export function setHabitArchived(habit: Habit, archived: boolean): void {
   const changed = getData() !== before;
   toast({
     title: archived ? `${habit.name} archived` : `${habit.name} restored`,
-    description: archived ? 'Its history is kept, but it’s out of your stats.' : 'It’s back on your Today list.',
+    description: archived ? "Its history is kept, but it's out of your stats." : "It's back on your Today list.",
     icon: habit.icon,
     tone: archived ? 'default' : 'success',
     ...(changed ? { action: undoAction() } : {}),
@@ -73,7 +73,7 @@ export async function confirmDeleteHabit(habit: Habit): Promise<boolean> {
   const confirmed = await confirmDialog({
     title: `Delete ${habit.name}?`,
     description:
-      `${history}You can undo right away (Undo or ${MOD_KEY}+Z), but after a reload it’s gone for good. ` +
+      `${history}You can undo right away (Undo or ${MOD_KEY}+Z), but after a reload it's gone for good. ` +
       'Type the name to confirm, or archive it instead to keep the history.',
     confirmLabel: 'Delete habit',
     tone: 'danger',

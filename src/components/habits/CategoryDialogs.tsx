@@ -201,7 +201,7 @@ export function CategoryDeleteModal({ category, categories, habitCount, onClose 
       onClose={onClose}
       size="sm"
       title={`Delete ${category?.name ?? 'category'}?`}
-      description="Deleting a category doesn’t delete its habits. They move to another one."
+      description="Deleting a category doesn't delete its habits. They move to another one."
       icon={category?.icon ?? '🗑️'}
       footer={
         <div className="flex w-full items-center justify-end gap-2">
@@ -216,7 +216,7 @@ export function CategoryDeleteModal({ category, categories, habitCount, onClose 
     >
       {others.length === 0 ? (
         <p className="text-sm leading-relaxed text-fg-3">
-          This is your only category, so it can’t be deleted. Create another one first so your habits have
+          This is your only category, so it can't be deleted. Create another one first so your habits have
           somewhere to go.
         </p>
       ) : habitCount === 0 ? (

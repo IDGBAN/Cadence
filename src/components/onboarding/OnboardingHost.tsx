@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, FlaskConical, Lock, Rocket, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import type { Habit, ThemeName } from '@/types';
-import { generateDemoData } from '@/lib/demo';
+import { DEMO_DAYS, loadDemoData } from '@/lib/dataActions';
 import { confettiCelebration, playSound } from '@/lib/feedback';
 import { actions, getData, useStore } from '@/store/store';
 import { useActiveHabits, useReducedMotion, useSettings } from '@/store/hooks';
@@ -14,7 +14,6 @@ import { AccentPicker, ThemePicker } from '@/components/settings/ThemePicker';
 import { HabitChecklist } from './HabitChecklist';
 import { LoggingTour } from './LoggingTour';
 
-const DEMO_DAYS = 150;
 const NAME_MAX_LENGTH = 24;
 
 const STEPS = [
@@ -133,12 +132,7 @@ export function OnboardingHost() {
     // let the spinner paint before the generator blocks the main thread
     await new Promise((resolve) => setTimeout(resolve, 0));
     try {
-      const current = getData().settings;
-      const demo = generateDemoData(DEMO_DAYS, 42, {
-        dayStartHour: current.dayStartHour,
-        weekStartsOn: current.weekStartsOn,
-      });
-      actions().replaceData({ ...demo, settings: { ...current }, meta: { ...demo.meta, onboarded: true } });
+      if (!loadDemoData()) return;
       finish();
       toast({
         title: 'Demo data loaded',
@@ -288,7 +282,7 @@ export function OnboardingHost() {
                 </ul>
 
                 <SettingNote className="mt-4" tone="accent" icon={<Lock aria-hidden="true" />}>
-                  Everything stays in this browser. There’s no account, cloud sync or tracking, and backups are files
+                  Everything stays in this browser. There's no account, cloud sync or tracking, and backups are files
                   you keep.
                 </SettingNote>
               </div>
@@ -338,7 +332,7 @@ export function OnboardingHost() {
                 <StepHeading
                   eyebrow="Your habits"
                   title="A few habits to start with"
-                  subtitle="Untick anything you don’t need. You can add, edit or archive habits later on the Habits page."
+                  subtitle="Untick anything you don't need. You can add, edit or archive habits later on the Habits page."
                 />
                 <HabitChecklist removed={removed} onToggle={(habit, keep) => void toggleHabit(habit, keep)} />
               </div>
@@ -353,7 +347,7 @@ export function OnboardingHost() {
                 />
                 <LoggingTour />
                 <SettingNote className="mt-4" icon={<ArrowLeft aria-hidden="true" />}>
-                  Missed a day? Edit any past day from the week strip on Today, from History, or from a habit’s own
+                  Missed a day? Edit any past day from the week strip on Today, from History, or from a habit's own
                   calendar.
                 </SettingNote>
               </div>
@@ -369,7 +363,7 @@ export function OnboardingHost() {
                     🚀
                   </span>
                   <h2 className="mt-4 font-display text-2xl font-semibold tracking-tight text-fg">
-                    You’re all set{displayName === '' ? '' : `, ${displayName}`}
+                    You're all set{displayName === '' ? '' : `, ${displayName}`}
                   </h2>
                   <p className="mt-2 text-[14px] text-fg-2">
                     {habits.length} {habits.length === 1 ? 'habit is' : 'habits are'} ready. Log one today to start a

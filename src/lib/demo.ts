@@ -2,7 +2,7 @@ import type { AppData, DayKey, Habit, LogEntry, Relapse } from '@/types';
 import { createInitialData, RECOMMENDED_TEMPLATES, STARTER_TEMPLATES } from './defaults';
 import { addDays, fromDayKey, logicalToday, startOfWeek, weekday } from './dates';
 import { dayOverview, makeCtx } from './habitMath';
-import { computeXp, levelFromXp } from './rewards';
+import { computeXp, evaluateAchievements, levelFromXp } from './rewards';
 
 export interface DemoOptions {
   now?: Date;
@@ -72,7 +72,7 @@ const STUDY_NOTES = ['Finished chapter 4', 'Practice exam: 82%', 'Flashcards + s
 const SLEEP_NOTES = ['Woke up at 3am', 'Slept like a rock', 'Noisy neighbours', 'Vivid dreams', 'Too warm in the room'];
 const MOOD_NOTES = ['Great day with friends', 'Stressful meeting', 'Sunny walk after lunch', 'Bit flat today', 'Good news at work'];
 const FOOD_NOTES = ['Meal-prepped for the week', 'Pizza night 🍕', 'Big salad for lunch', 'Too many snacks', 'Cooked a proper dinner'];
-const READ_NOTES = ['Couldn’t put it down', 'Started a new novel', 'A few pages before bed', 'Finished the book!'];
+const READ_NOTES = ["Couldn't put it down", 'Started a new novel', 'A few pages before bed', 'Finished the book!'];
 const RELAPSE_NOTES = ['Scrolled until 1am', 'Stressful day, zoned out on my phone', 'Short videos rabbit hole', ''];
 const DAY_NOTES = [
   'Felt really productive today.',
@@ -86,7 +86,7 @@ const DAY_NOTES = [
   'Phone stayed in the other room all evening. Slept so much better.',
   'Exam week is coming. Keeping sleep a priority.',
   'Coffee with an old friend.',
-  'Lazy Sunday, and that’s okay.',
+  "Lazy Sunday, and that's okay.",
 ];
 
 // steady, then a rough patch around 40 days ago, then a climb over the last four weeks. it's kept
@@ -119,6 +119,8 @@ export function generateDemoData(days = 150, seed = 42, options: DemoOptions = {
   const today = logicalToday(dayStartHour, now);
   const startDay = addDays(today, -span);
   const n = span + 1; // index 0 = start day, n - 1 = today
+  // Vitamin D runs a streak this long up to today, with a gap on the day before it started
+  const vitaminDStreak = Math.min(70, n);
   const TODAY = n - 1;
   const dayKeys: DayKey[] = new Array(n);
   const weekdays: number[] = new Array(n);
@@ -217,7 +219,8 @@ export function generateDemoData(days = 150, seed = 42, options: DemoOptions = {
   const pickGreatDays = (count: number, fromDaysBefore: number, toDaysBefore: number) => {
     for (let k = 0, attempts = 0; k < count && attempts < 60; attempts++) {
       const index = TODAY - greatRng.int(fromDaysBefore, toDaysBefore);
-      if (index < 1 || index >= TODAY || great.has(index) || away(index) || relapseDays.has(index) || relapseDays.has(index - 1)) continue;
+      if (index < 1 || index >= TODAY || index === TODAY - vitaminDStreak || great.has(index) || away(index)) continue;
+      if (relapseDays.has(index) || relapseDays.has(index - 1)) continue;
       great.add(index);
       k++;
     }
@@ -322,13 +325,13 @@ export function generateDemoData(days = 150, seed = 42, options: DemoOptions = {
   const vitDRng = stream('vitamin-d');
   const magRng = stream('magnesium');
   const vitCRng = stream('vitamin-c');
-  const vitaminDStreak = Math.min(70, n);
   for (let i = 0; i < n; i++) {
     const routine = routineRng.chance((isWeekend(i) ? 0.66 : 0.9) + boost(i) * 0.5) || great.has(i);
     const daysBeforeToday = TODAY - i;
 
     // Vitamin D gets a long streak that's still running today
-    const vitaminD = daysBeforeToday < vitaminDStreak || (daysBeforeToday > vitaminDStreak && vitDRng.chance(routine ? 0.95 : 0.2));
+    const vitaminD = daysBeforeToday < vitaminDStreak
+      || (daysBeforeToday > vitaminDStreak && (vitDRng.chance(routine ? 0.95 : 0.2) || great.has(i)));
     if (vitaminD) put('vitamin-d', i, { value: 1, updatedAt: stamp(vitDRng, i, 8, 10) });
     if (i === TODAY) continue;
 
@@ -403,19 +406,41 @@ export function generateDemoData(days = 150, seed = 42, options: DemoOptions = {
     meta: { createdAt, onboarded: true },
   };
 
-  // mark past perfect days and the current level as seen, so loading the demo doesn't fire a pile of celebrations
+  // mark past perfect days, earned badges and the level as seen, so loading the demo doesn't fire a pile of celebrations
   const ctx = makeCtx(settings, now);
   const celebratedPerfectDays: DayKey[] = [];
   for (let i = 0; i < TODAY; i++) {
     if (dayOverview(data, dayKeys[i], ctx).perfect) celebratedPerfectDays.push(dayKeys[i]);
   }
-  let lastSeenLevel = 1;
-  try {
-    const level = levelFromXp(computeXp(data, ctx).total).level;
-    if (Number.isFinite(level) && level >= 1) lastSeenLevel = Math.floor(level);
-  } catch {
-    lastSeenLevel = 1;
-  }
-  data.rewards = { unlocked: {}, lastSeenLevel, celebratedPerfectDays };
+  const unlocked = earnedBadges(data, dayKeys, settings, now);
+  data.rewards = { unlocked, lastSeenLevel: 1, celebratedPerfectDays };
+  const level = levelFromXp(computeXp(data, ctx).total).level;
+  data.rewards.lastSeenLevel = Number.isFinite(level) && level >= 1 ? Math.floor(level) : 1;
   return data;
+}
+
+const BADGE_CHECK_EVERY_DAYS = 7;
+
+// stamps each badge on the first weekly checkpoint where the history already earns it, so the XP chart
+// shows them spread out instead of one spike today
+function earnedBadges(
+  data: AppData,
+  dayKeys: readonly DayKey[],
+  settings: AppData['settings'],
+  now: Date,
+): Record<string, string> {
+  const unlocked: Record<string, string> = {};
+  const last = dayKeys.length - 1;
+  for (let i = Math.min(BADGE_CHECK_EVERY_DAYS - 1, last); ; i = Math.min(i + BADGE_CHECK_EVERY_DAYS, last)) {
+    let at = now;
+    if (i < last) {
+      at = fromDayKey(dayKeys[i]);
+      at.setHours(21, 0, 0, 0);
+    }
+    for (const status of evaluateAchievements(data, makeCtx(settings, at))) {
+      if (status.unlocked && !(status.def.id in unlocked)) unlocked[status.def.id] = at.toISOString();
+    }
+    if (i === last) break;
+  }
+  return unlocked;
 }

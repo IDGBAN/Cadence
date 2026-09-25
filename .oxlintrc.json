@@ -1,0 +1,58 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "vitest", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": { "browser": true, "es2024": true },
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "ignoreRestSiblings": true }],
+
+    // automatic jsx runtime, and no react compiler in this project
+    "react/react-in-jsx-scope": "off",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/immutability": "off",
+    "react/use-memo": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/memo-dependencies": "off",
+    "react/exhaustive-effect-dependencies": "off",
+
+    // custom widgets follow the ARIA authoring patterns on purpose. composite widgets (combobox, grid) move
+    // focus with aria-activedescendant or a roving tabindex, and handle keys on the widget, not each option
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/click-events-have-key-events": "off",
+    "jsx-a11y/interactive-supports-focus": "off",
+    // can't see text that comes from an expression, so it flags buttons that do have a label
+    "jsx-a11y/control-has-associated-label": "off",
+    // a clickable div is the real problem. key and focus handlers on a container are delegation
+    "jsx-a11y/no-static-element-interactions": ["error", { "handlers": ["onClick", "onMouseDown", "onMouseUp"] }],
+    "jsx-a11y/no-noninteractive-element-interactions": ["error", { "handlers": ["onClick", "onMouseDown", "onMouseUp"] }],
+    // only used inside dialogs, where moving focus in is expected
+    "jsx-a11y/no-autofocus": "off",
+
+    // vitest accepts a failure message as the second argument
+    "vitest/valid-expect": ["error", { "maxArgs": 2 }],
+    "vitest/no-conditional-expect": "off",
+    "vitest/require-mock-type-parameters": "off",
+
+    // every index key here is on a fixed list that never reorders
+    "react/no-array-index-key": "off",
+    "react/no-unstable-nested-components": ["warn", { "allowAsProps": true }],
+
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-array-reverse": "off",
+    "unicorn/no-new-array": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/require-post-message-target-origin": "off",
+    "eslint/no-underscore-dangle": "off",
+    "oxc/no-map-spread": "off",
+    "import/no-named-as-default": "off",
+    "import/no-unassigned-import": "off"
+  },
+  "ignorePatterns": ["dist", "node_modules"]
+}

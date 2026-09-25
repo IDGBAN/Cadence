@@ -4,7 +4,7 @@ import type { AppData, Category, DayKey, Habit, HabitSummary, LogEntry, Relapse,
 import type { DayOverview, DayOverviewItem, EngineCtx, QuitStats } from '@/lib/habitMath';
 import { dayOverview, habitSummary, quitStats } from '@/lib/habitMath';
 import { logicalToday } from '@/lib/dates';
-import { useStore } from './store';
+import { getData, useStore } from './store';
 
 type Listener = () => void;
 
@@ -50,7 +50,8 @@ function scheduleTick(): void {
 
 function tick(force = false): void {
   clock.now = Date.now();
-  for (const s of [...clock.subscriptions]) {
+  // a listener can unsubscribe others while this runs, so walk a copy
+  for (const s of Array.from(clock.subscriptions)) {
     const bucket = Math.floor(clock.now / s.interval);
     if (!force && bucket === s.bucket) continue;
     s.bucket = bucket;
@@ -87,6 +88,18 @@ const noopUnsubscribe = () => undefined;
 
 export function useData(): AppData {
   return useStore((s) => s.data);
+}
+
+/**
+ * Just the parts of AppData the engine reads (habits, logs, relapses, day notes), so heavy analytics
+ * don't start over for a theme change or a badge unlock. Settings come from the ctx instead.
+ */
+export function useAnalysisData(): AppData {
+  const habits = useStore((s) => s.data.habits);
+  const logs = useStore((s) => s.data.logs);
+  const relapses = useStore((s) => s.data.relapses);
+  const dayNotes = useStore((s) => s.data.dayNotes);
+  return useMemo(() => ({ ...getData(), habits, logs, relapses, dayNotes }), [habits, logs, relapses, dayNotes]);
 }
 
 export function useSettings(): Settings {
@@ -126,9 +139,10 @@ const QUIT_TICK_MS = 30_000;
 export function useQuitCtx(enabled = true, intervalMs = QUIT_TICK_MS): EngineCtx {
   const ctx = useEngineCtx();
   const relapses = useStore((s) => (enabled ? s.data.relapses : undefined));
-  const tick = useNow(enabled ? intervalMs : 0);
-  // relapses and tick only trigger a fresh `now`
-  return useMemo(() => (enabled ? { ...ctx, now: new Date(readClock()) } : ctx), [enabled, ctx, relapses, tick]);
+  const clockTick = useNow(enabled ? intervalMs : 0);
+  // relapses and the clock tick only trigger a fresh `now`
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => (enabled ? { ...ctx, now: new Date(readClock()) } : ctx), [enabled, ctx, relapses, clockTick]);
 }
 
 export function useToday(): DayKey {
@@ -147,6 +161,7 @@ export function useNow(intervalMs = 1000): Date {
   const getSnapshot = useCallback(() => (interval > 0 ? Math.floor(readClock() / interval) : 0), [interval]);
   const bucket = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   // bucket is the trigger, not an input
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => new Date(readClock()), [bucket, interval]);
 }
 

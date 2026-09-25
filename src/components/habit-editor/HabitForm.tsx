@@ -492,8 +492,8 @@ export function HabitForm({ draft, onChange, errors, showErrors, formId, onSubmi
             />
             <Hint>
               {draft.direction === 'atMost'
-                ? `A day counts as a win if you stay within “${formatGoal(draft)}”.`
-                : `A day counts as a win if you hit “${formatGoal(draft)}”.`}
+                ? `A day counts as a win if you stay within "${formatGoal(draft)}".`
+                : `A day counts as a win if you hit "${formatGoal(draft)}".`}
             </Hint>
           </div>
         )}
@@ -560,11 +560,11 @@ export function HabitForm({ draft, onChange, errors, showErrors, formId, onSubmi
         )}
 
         {draft.kind === 'goal' && draft.period !== 'day' && (
-          <Hint>Log on any day. It all adds up toward “{formatGoal(draft)}”.</Hint>
+          <Hint>Log on any day. It all adds up toward "{formatGoal(draft)}".</Hint>
         )}
         {draft.type === 'rating' && <Hint>Ratings are logged once a day, so they are always daily.</Hint>}
-        {draft.type === 'quit' && <Hint>The counter runs every day and only resets when you log a relapse.</Hint>}
-        {draft.kind === 'metric' && <Hint>Track-only habits can be logged any day. Nothing is ever “due”.</Hint>}
+        {draft.type === 'quit' && <Hint>The counter runs every day and only resets when you log a slip.</Hint>}
+        {draft.kind === 'metric' && <Hint>Track-only habits can be logged any day. Nothing is ever "due".</Hint>}
       </Section>
 
       <Section title="History">
@@ -574,7 +574,7 @@ export function HabitForm({ draft, onChange, errors, showErrors, formId, onSubmi
           className="max-w-[16rem]"
           value={draft.startDate}
           error={err('startDate')}
-          hint="Days before this don’t count against you."
+          hint="Days before this don't count against you."
           onChange={(e) => {
             if (e.target.value === '') return;
             patch({ startDate: e.target.value });

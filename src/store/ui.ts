@@ -24,7 +24,7 @@ export type Celebration =
   | { kind: 'levelUp'; level: number }
   | { kind: 'achievement'; achievementId: string }
   | { kind: 'milestone'; habitId: string; days: number }
-  | { kind: 'periodGoal'; habitId: string; period: 'week' | 'month' };
+  | { kind: 'periodGoal'; habitId: string; period: 'week' | 'month'; start: DayKey };
 
 export interface UIStore {
   /** `focus: 'note'` opens it with the note field focused. */
@@ -52,13 +52,14 @@ export interface UIStore {
   /** CelebrationHost shows the head of the queue. Duplicates of a queued celebration are ignored. */
   celebrations: Celebration[];
   celebrate: (c: Celebration) => void;
-  shiftCelebration: () => void;
+  /** With a key, only shifts while that celebration is still at the head, so a repeated dismiss is harmless. */
+  shiftCelebration: (expectedKey?: string) => void;
 }
 
 export const MAX_VISIBLE_TOASTS = 4;
 export const DEFAULT_TOAST_DURATION = 3500;
 
-function celebrationKey(c: Celebration): string {
+export function celebrationKey(c: Celebration): string {
   switch (c.kind) {
     case 'perfectDay':
       return `perfectDay:${c.day}`;
@@ -69,7 +70,7 @@ function celebrationKey(c: Celebration): string {
     case 'milestone':
       return `milestone:${c.habitId}:${c.days}`;
     case 'periodGoal':
-      return `periodGoal:${c.habitId}:${c.period}`;
+      return `periodGoal:${c.habitId}:${c.start}`;
   }
 }
 
@@ -99,7 +100,7 @@ export const useUI = create<UIStore>()((set, get) => ({
 
   toasts: [],
   pushToast: (input) => {
-    const toast: Toast = {
+    const entry: Toast = {
       ...input,
       tone: input.tone ?? 'default',
       duration: input.duration !== undefined && Number.isFinite(input.duration) && input.duration >= 0
@@ -108,8 +109,8 @@ export const useUI = create<UIStore>()((set, get) => ({
       id: uid('t'),
       createdAt: Date.now(),
     };
-    set({ toasts: [...get().toasts, toast].slice(-MAX_VISIBLE_TOASTS) });
-    return toast.id;
+    set({ toasts: [...get().toasts, entry].slice(-MAX_VISIBLE_TOASTS) });
+    return entry.id;
   },
   dismissToast: (id) => {
     const toasts = get().toasts;
@@ -123,9 +124,11 @@ export const useUI = create<UIStore>()((set, get) => ({
     if (queue.some((q) => celebrationKey(q) === key)) return;
     set({ celebrations: [...queue, c] });
   },
-  shiftCelebration: () => {
+  shiftCelebration: (expectedKey) => {
     const queue = get().celebrations;
-    if (queue.length > 0) set({ celebrations: queue.slice(1) });
+    if (queue.length === 0) return;
+    if (expectedKey !== undefined && celebrationKey(queue[0]) !== expectedKey) return;
+    set({ celebrations: queue.slice(1) });
   },
 }));
 

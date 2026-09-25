@@ -226,7 +226,7 @@ function QuitDemo() {
               playSound('relapse');
             }}
           >
-            Log a relapse
+            Log a slip
           </Button>
         )}
       </div>
@@ -242,7 +242,7 @@ function QuitDemo() {
 export function LoggingTour() {
   return (
     <ul className="space-y-2.5">
-      <TourCard icon="☀️" color="emerald" title="Yes or no" hint="Supplements, Duolingo, brushing. One tap and it’s done.">
+      <TourCard icon="☀️" color="emerald" title="Yes or no" hint="Supplements, Duolingo, brushing. One tap and it's done.">
         <CheckDemo />
       </TourCard>
       <TourCard icon="💧" color="sky" title="Count things" hint="Glasses of water, meals, pages. Minus and plus, or type the number.">
@@ -254,7 +254,7 @@ export function LoggingTour() {
       <TourCard icon="😴" color="indigo" title="Rate out of 10" hint="Sleep quality, mood, how clean you ate. Your goal is a threshold.">
         <RatingDemo />
       </TourCard>
-      <TourCard icon="📵" color="pink" title="Quit something" hint="Counts up every clean day and resets when you log a relapse.">
+      <TourCard icon="📵" color="pink" title="Quit something" hint="Counts up every clean day and resets when you log a slip.">
         <QuitDemo />
       </TourCard>
     </ul>

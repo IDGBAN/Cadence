@@ -84,7 +84,7 @@ export default function SettingsPage() {
               }
             >
               <SettingNote icon={<span aria-hidden="true">👋</span>}>
-                On Today you’ll see:{' '}
+                On Today you'll see:{' '}
                 <span className="font-medium text-fg">
                   {greeting(now)}
                   {displayName === '' ? '' : `, ${displayName}`}.
@@ -99,7 +99,7 @@ export default function SettingsPage() {
             subtitle="Four themes and six accents. Changes apply instantly."
             icon={<Palette aria-hidden="true" />}
           >
-            <SettingRow label="Theme" description="Previews use each theme’s real colors.">
+            <SettingRow label="Theme" description="Previews use each theme's real colors.">
               <ThemePicker
                 value={settings.theme}
                 accent={settings.accent}
@@ -121,7 +121,7 @@ export default function SettingsPage() {
 
             <SettingRow
               label="Reduce motion"
-              description="Turns off springy animations, drifting glows and confetti. Your system’s reduced motion setting also applies."
+              description="Turns off springy animations, drifting glows and confetti. Your system's reduced motion setting also applies."
               control={
                 <Switch
                   checked={settings.reduceMotion}
@@ -186,7 +186,7 @@ export default function SettingsPage() {
               }
             >
               <SettingNote icon={<Clock aria-hidden="true" />}>
-                It’s {formatTime(now)} right now, so anything you log counts for{' '}
+                It's {formatTime(now)} right now, so anything you log counts for{' '}
                 <span className="font-medium text-fg">
                   {relativeDayLabel(logicalDay, calendarDay).toLowerCase()}, {formatDayLong(logicalDay)}
                 </span>
@@ -271,7 +271,7 @@ export default function SettingsPage() {
 
             <SettingRow
               label="Hide completed habits"
-              description="Only show what’s left to do on Today."
+              description="Only show what's left to do on Today."
               control={
                 <Switch
                   checked={settings.hideCompleted}

@@ -176,7 +176,7 @@ export function HistoryTimeline({ habits, today, ctx, query, onClearQuery }: His
         ) : (
           <EmptyState
             icon={<SearchX />}
-            title={`No days match “${query.trim()}”`}
+            title={`No days match "${query.trim()}"`}
             description="Try a habit name or a word from one of your notes."
             action={
               <Button variant="secondary" onClick={onClearQuery}>
@@ -324,7 +324,7 @@ function DayCard({
             >
               <TriangleAlert className="size-3.5 shrink-0 text-danger" aria-hidden />
               <span className="shrink-0 font-semibold text-danger tabular">{formatTime(relapse.at)}</span>
-              <span className="min-w-0 truncate text-fg-2">{relapse.note?.trim() || 'Relapse'}</span>
+              <span className="min-w-0 truncate text-fg-2">{relapse.note?.trim() || 'Slip'}</span>
             </li>
           ))}
         </ul>

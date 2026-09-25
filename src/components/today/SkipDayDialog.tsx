@@ -31,7 +31,7 @@ export function SkipDayDialog({ open, day, isToday, count, onCancel, onConfirm }
       title={isToday ? 'Take the rest of today off?' : `Take ${formatDayShort(day)} off?`}
       description={
         `Skips the ${pluralize(count, 'habit')} still open on ${formatDayShort(day)} so a sick day or rest ` +
-        'day won’t break your streaks. Anything you already logged stays, and Undo brings everything back.'
+        "day won't break your streaks. Anything you already logged stays, and Undo brings everything back."
       }
       footer={
         <>

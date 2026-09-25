@@ -50,10 +50,20 @@ function ladderFor(habit: Habit): number[] {
 function RelapseEditor({ relapse, onClose }: { relapse: Relapse; onClose: () => void }) {
   const [at, setAt] = useState(() => toDateTimeLocalValue(relapse.at));
   const [note, setNote] = useState(relapse.note ?? '');
+  const [error, setError] = useState('');
 
   const save = () => {
     const iso = fromDateTimeLocalValue(at);
-    actions().updateRelapse(relapse.id, { at: iso || relapse.at, note: note.trim() });
+    if (iso === '') {
+      setError('Pick a date and time.');
+      return;
+    }
+    // the counter ignores slips that haven't happened yet, so a future time would quietly do nothing
+    if (Date.parse(iso) > Date.now()) {
+      setError('That time is in the future.');
+      return;
+    }
+    actions().updateRelapse(relapse.id, { at: iso, note: note.trim() });
     toast({ title: 'Slip updated', tone: 'default', icon: '📝' });
     onClose();
   };
@@ -80,8 +90,13 @@ function RelapseEditor({ relapse, onClose }: { relapse: Relapse; onClose: () => 
           label="When it happened"
           type="datetime-local"
           value={at}
+          max={toDateTimeLocalValue(new Date().toISOString())}
+          error={error}
           data-autofocus
-          onChange={(event) => setAt(event.target.value)}
+          onChange={(event) => {
+            setAt(event.target.value);
+            setError('');
+          }}
         />
         <Textarea
           label="Note (optional)"

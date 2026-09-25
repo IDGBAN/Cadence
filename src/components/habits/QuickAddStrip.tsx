@@ -39,7 +39,7 @@ export function QuickAddStrip({ existingNames }: QuickAddStripProps) {
           <p className="text-sm text-fg-3">
             {suggestions.length > 0
               ? 'Tap one to add it to Today. You can tweak it later.'
-              : 'You’ve added all the suggestions. Try making your own.'}
+              : "You've added all the suggestions. Try making your own."}
           </p>
         </div>
         <Button variant="secondary" size="sm" icon={<LayoutGrid />} onClick={() => openHabitEditor(null)}>

@@ -39,9 +39,9 @@ function tierInk(to: string, light: boolean): string {
   return light ? `color-mix(in oklab, ${to} 68%, black)` : to;
 }
 
-function unlockedLabel(at: string | undefined): string | null {
+function unlockedLabel(at: string | undefined, dayStartHour: number): string | null {
   if (!at) return null;
-  const day = logicalDayOf(at);
+  const day = logicalDayOf(at, dayStartHour);
   return `Unlocked ${formatDayLong(day)}`;
 }
 
@@ -53,6 +53,11 @@ function isFresh(at: string | undefined): boolean {
 
 function displayName(status: AchievementStatus): string {
   return status.def.secret && !status.unlocked ? '???' : status.def.name;
+}
+
+// "???" reads as three question marks to a screen reader
+function accessibleName(status: AchievementStatus): string {
+  return status.def.secret && !status.unlocked ? 'Secret badge, locked' : status.def.name;
 }
 
 function displayDescription(status: AchievementStatus): string {
@@ -85,7 +90,11 @@ function AchievementTile({
       exit={{ opacity: 0, scale: 0.94 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       onClick={onOpen}
-      aria-label={`${displayName(status)}, ${unlocked ? 'unlocked' : `${formatNumber(current, 1)} of ${formatNumber(target, 1)}`}`}
+      aria-label={
+        hidden
+          ? accessibleName(status)
+          : `${displayName(status)}, ${unlocked ? 'unlocked' : `${formatNumber(current, 1)} of ${formatNumber(target, 1)}`}`
+      }
       className={cn(
         // no transform on hover, motion owns transform here for the layout animation
         'card relative flex min-h-[172px] flex-col items-center gap-2 overflow-hidden p-3.5 text-center',
@@ -137,7 +146,7 @@ function AchievementTile({
             <CircleCheck className="size-3" aria-hidden />
             {tier.label} · +{formatNumber(def.xp, 0)} XP
           </span>
-        ) : (
+        ) : hidden ? null : (
           <>
             <ProgressBar
               value={progress}
@@ -168,12 +177,13 @@ function AchievementDetail({
 }) {
   const { def, unlocked, current, target, progress, unlockedAt } = status;
   const tier = TIER_COLORS[def.tier];
+  const { dayStartHour } = useSettings();
   const remaining = Math.max(0, target - current);
-  const when = unlockedLabel(unlockedAt);
+  const when = unlockedLabel(unlockedAt, dayStartHour);
   const hidden = def.secret && !unlocked;
 
   return (
-    <Modal open={open} onClose={onClose} size="sm" aria-label={displayName(status)}>
+    <Modal open={open} onClose={onClose} size="sm" aria-label={accessibleName(status)}>
       <div className="flex flex-col items-center px-1 text-center">
         <span
           aria-hidden
@@ -211,6 +221,8 @@ function AchievementDetail({
 
         {unlocked ? (
           <p className="mt-4 text-[13px] text-fg-3">{when ?? 'Earned before unlock dates were tracked.'}</p>
+        ) : hidden ? (
+          <p className="mt-4 text-[13px] leading-relaxed text-fg-3">No hints for this one. It unlocks on its own.</p>
         ) : (
           <div className="mt-5 w-full rounded-xl border border-line bg-surface-2/60 p-4 text-left">
             <div className="flex items-baseline justify-between gap-3">
@@ -227,9 +239,7 @@ function AchievementDetail({
               aria-label={`${Math.round(progress * 100)}% complete`}
             />
             <p className="mt-3 text-[13px] leading-relaxed text-fg-3">
-              {hidden
-                ? 'No hints for this one. It unlocks on its own.'
-                : `${formatNumber(remaining, 1)} to go. ${def.description}`}
+              {formatNumber(remaining, 1)} to go. {def.description}
             </p>
           </div>
         )}
@@ -325,7 +335,7 @@ export function AchievementCase() {
             {filter === 'unlocked'
               ? 'No badges yet. Complete a habit today and your first one is close.'
               : filter === 'locked'
-                ? 'You’ve unlocked every badge.'
+                ? "You've unlocked every badge."
                 : 'No achievements are defined.'}
           </p>
         </div>

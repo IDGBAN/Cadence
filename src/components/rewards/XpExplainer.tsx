@@ -56,7 +56,7 @@ export function XpExplainer() {
           },
           {
             label: 'Bonus day',
-            detail: 'Doing a habit on a day it wasn’t scheduled.',
+            detail: "Doing a habit on a day it wasn't scheduled.",
             amount: xp(XP_RULES.bonusDay),
           },
           {
@@ -76,7 +76,7 @@ export function XpExplainer() {
         rules: [
           {
             label: 'A day that feeds a weekly or monthly goal',
-            detail: 'Every day that counts toward the goal.',
+            detail: 'Every day that counts toward the goal. Weekly and monthly limits only pay when the period ends within the limit.',
             amount: xp(XP_RULES.periodDay),
           },
           {
@@ -101,12 +101,12 @@ export function XpExplainer() {
         rules: [
           {
             label: 'Each clean day',
-            detail: 'Counted from your last reset.',
+            detail: 'Every day without a slip, in every run.',
             amount: xp(XP_RULES.quitCleanDay),
           },
           ...QUIT_MILESTONE_XP.map(([days, amount]) => ({
             label: `${formatNumber(days, 0)} clean days`,
-            detail: 'One-time bonus each time a run hits this mark.',
+            detail: 'Paid once per clean run.',
             amount: xp(amount),
           })),
         ],
@@ -125,35 +125,37 @@ export function XpExplainer() {
 
   return (
     <section className="card overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-controls={panelId}
-        className={cn(
-          'flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-2/50 sm:p-5',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
-        )}
-      >
-        <span
-          aria-hidden
-          className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-2 text-fg-2 [&_svg]:size-[18px]"
+      <h2>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className={cn(
+            'flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-2/50 sm:p-5',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+          )}
         >
-          <Info />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-display text-lg font-semibold tracking-tight text-fg sm:text-xl">
-            How XP works
+          <span
+            aria-hidden
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-2 text-fg-2 [&_svg]:size-[18px]"
+          >
+            <Info />
           </span>
-          <span className="mt-0.5 block text-sm text-fg-3">
-            Every rule the app uses to score your days.
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-lg font-semibold tracking-tight text-fg sm:text-xl">
+              How XP works
+            </span>
+            <span className="mt-0.5 block text-sm text-fg-3">
+              Every rule the app uses to score your days.
+            </span>
           </span>
-        </span>
-        <ChevronDown
-          aria-hidden
-          className={cn('size-5 shrink-0 text-fg-3 transition-transform duration-200', open && 'rotate-180')}
-        />
-      </button>
+          <ChevronDown
+            aria-hidden
+            className={cn('size-5 shrink-0 text-fg-3 transition-transform duration-200', open && 'rotate-180')}
+          />
+        </button>
+      </h2>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -173,14 +175,12 @@ export function XpExplainer() {
                     <h3 className="eyebrow mb-2.5">{group.heading}</h3>
                     <dl className="flex flex-col gap-2.5">
                       {group.rules.map((rule) => (
-                        <div key={rule.label} className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <dt className="text-[13px] font-semibold text-fg-2">{rule.label}</dt>
-                            <dd className="mt-0.5 text-[11px] leading-relaxed text-fg-3">{rule.detail}</dd>
-                          </div>
-                          <span className="shrink-0 whitespace-nowrap text-[12px] font-bold tabular text-xp light:text-[color-mix(in_oklab,var(--xp)_82%,black)]">
+                        <div key={rule.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3">
+                          <dt className="text-[13px] font-semibold text-fg-2">{rule.label}</dt>
+                          <dd className="whitespace-nowrap text-[12px] font-bold tabular text-xp light:text-[color-mix(in_oklab,var(--xp)_82%,black)]">
                             {rule.amount}
-                          </span>
+                          </dd>
+                          <dd className="col-start-1 mt-0.5 text-[11px] leading-relaxed text-fg-3">{rule.detail}</dd>
                         </div>
                       ))}
                     </dl>

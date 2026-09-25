@@ -19,7 +19,7 @@ export async function discardTimer(habit: Habit, timer: RunningTimer): Promise<v
   if (elapsed >= 60_000) {
     const ok = await confirmDialog({
       title: 'Discard this timer?',
-      description: `${formatStopwatch(elapsed)} of ${habit.name} won’t be logged. Hit Stop instead if you want to keep it.`,
+      description: `${formatStopwatch(elapsed)} of ${habit.name} won't be logged. Hit Stop instead if you want to keep it.`,
       confirmLabel: 'Discard time',
       cancelLabel: 'Keep timing',
       tone: 'danger',

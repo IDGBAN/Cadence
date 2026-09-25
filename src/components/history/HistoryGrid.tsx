@@ -321,6 +321,7 @@ export function HistoryGrid({ model, view, today }: HistoryGridProps) {
         )}
       >
         <div
+          role="group"
           aria-label={`Habit history, ${days.length} days`}
           onKeyDown={onKeyDown}
           className={dense ? 'min-w-max' : 'min-w-[28rem]'}
@@ -329,7 +330,7 @@ export function HistoryGrid({ model, view, today }: HistoryGridProps) {
             <div className="sticky left-0 z-20 flex items-end bg-surface px-3 pb-2 pt-3">
               <span className="eyebrow">Habit</span>
             </div>
-            {days.map((day, index) => {
+            {days.map((day) => {
               const date = fromDayKey(day);
               const weekend = date.getDay() === 0 || date.getDay() === 6;
               const current = day === today;
@@ -435,7 +436,7 @@ export function HistoryGrid({ model, view, today }: HistoryGridProps) {
                   className={cn('flex items-center justify-center px-0.5 py-2', future && 'opacity-50')}
                   title={
                     future
-                      ? `${formatDayShort(total.day)}: hasn’t happened yet`
+                      ? `${formatDayShort(total.day)}: hasn't happened yet`
                       : total.rate === null
                         ? `${formatDayShort(total.day)}: nothing scheduled`
                         : `${formatDayShort(total.day)}: ${total.completed} of ${total.total} done`
