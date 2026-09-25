@@ -9,7 +9,8 @@ const registered = new Set<FlushFn>();
 let listening = false;
 
 function flushAll(): void {
-  for (const flush of [...registered]) {
+  // a flush can unregister its editor, so walk a copy
+  for (const flush of Array.from(registered)) {
     try {
       flush();
     } catch {

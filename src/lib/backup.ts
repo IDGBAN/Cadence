@@ -1,5 +1,5 @@
 import type { AppData, Category, DayKey, Habit } from '@/types';
-import { migrate } from '@/store/store';
+import { migrate } from '@/lib/migrate';
 import { DATA_VERSION } from '@/lib/defaults';
 import { formatTime, logicalDayOf, toDayKey } from '@/lib/dates';
 import { formatValue } from '@/lib/format';

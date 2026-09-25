@@ -238,9 +238,9 @@ export function Heatmap({
             </div>
 
             <div className="flex" style={{ gap: GAP }}>
-              {Array.from({ length: weeks }, (_, week) => (
+              {Array.from({ length: weeks }, (_w, week) => (
                 <div key={week} className="flex flex-col" style={{ gap: GAP }}>
-                  {Array.from({ length: 7 }, (_, row) => {
+                  {Array.from({ length: 7 }, (_d, row) => {
                     const index = week * 7 + row;
                     const slot = slots[index];
                     if (!slot) {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppData, Habit } from '@/types';
 import { blankHabit, createInitialData } from '@/lib/defaults';
-import { migrate } from '@/store/store';
+import { migrate } from '@/lib/migrate';
 import { csvField, exportCsv, exportJson, parseBackup, readBackup } from './backup';
 
 // mock formatValue so copy changes in format.ts don't break these

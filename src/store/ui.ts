@@ -100,7 +100,7 @@ export const useUI = create<UIStore>()((set, get) => ({
 
   toasts: [],
   pushToast: (input) => {
-    const toast: Toast = {
+    const entry: Toast = {
       ...input,
       tone: input.tone ?? 'default',
       duration: input.duration !== undefined && Number.isFinite(input.duration) && input.duration >= 0
@@ -109,8 +109,8 @@ export const useUI = create<UIStore>()((set, get) => ({
       id: uid('t'),
       createdAt: Date.now(),
     };
-    set({ toasts: [...get().toasts, toast].slice(-MAX_VISIBLE_TOASTS) });
-    return toast.id;
+    set({ toasts: [...get().toasts, entry].slice(-MAX_VISIBLE_TOASTS) });
+    return entry.id;
   },
   dismissToast: (id) => {
     const toasts = get().toasts;

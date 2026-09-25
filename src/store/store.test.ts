@@ -1,8 +1,9 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppData, Habit } from '@/types';
 import { blankHabit, createInitialData, DATA_VERSION, DEFAULT_SETTINGS } from '@/lib/defaults';
-import type { StorageIssue } from './store';
-import { clearHistory, countLogValueChanges, createDebouncedStorage, flushPersistence, migrate, syncFromOtherTab, useStore } from './store';
+import { migrate } from '@/lib/migrate';
+import { createDebouncedStorage, type StorageIssue } from './persistence';
+import { clearHistory, countLogValueChanges, flushPersistence, syncFromOtherTab, useStore } from './store';
 
 const DAY = '2026-09-17';
 const PREV = '2026-09-16';
@@ -35,7 +36,9 @@ const data = () => state().data;
 const entry = (habitId: string, day = DAY) => data().logs[habitId]?.[day];
 
 beforeAll(async () => {
-  await vi.waitFor(() => expect(state().hydrated).toBe(true));
+  await vi.waitFor(() => {
+    if (!state().hydrated) throw new Error('store not hydrated yet');
+  });
 });
 
 beforeEach(() => {
@@ -397,7 +400,7 @@ describe('habits', () => {
     expect(added).toMatchObject({ period: 'day', schedule: [0, 1, 2, 3, 4, 5, 6], target: 5, categoryId: 'cat_a' });
 
     state().addHabit(habit({ id: 'new', name: 'dup id' }));
-    expect(data().habits.filter((x) => x.name === 'dup id')[0].id).not.toBe('new');
+    expect(data().habits.find((x) => x.name === 'dup id')?.id).not.toBe('new');
 
     state().updateHabit('water', { kind: 'metric', step: 0, schedule: [3, 1, 1] });
     expect(data().habits.find((x) => x.id === 'water')).toMatchObject({ kind: 'metric', step: 1, schedule: [1, 3] });

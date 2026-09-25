@@ -62,6 +62,8 @@ src/
 ```bash
 npm test            # vitest
 npm run typecheck   # tsc
+npm run lint        # oxlint
+npm run check       # all three
 ```
 
 ## License

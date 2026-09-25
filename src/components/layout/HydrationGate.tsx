@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useStore, type StorageIssue } from '@/store/store';
+import type { StorageIssue } from '@/store/persistence';
+import { useStore } from '@/store/store';
 import { BrandMark, BrandWordmark } from './BrandMark';
 
 const SLOW_MS = 2500;

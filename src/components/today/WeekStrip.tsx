@@ -35,7 +35,6 @@ export function WeekStrip({ day, today, weekStartsOn, dayProgress, onSelect, cla
   const start = startOfWeek(day, weekStartsOn);
   const end = endOfWeek(day, weekStartsOn);
   const days = eachDay(start, end);
-  const previousWeek = addDays(start, -7);
   const nextWeek = addDays(start, 7);
   const nextDisabled = nextWeek > today;
 

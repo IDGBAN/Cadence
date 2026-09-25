@@ -1,13 +1,16 @@
 import { create } from 'zustand';
-import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware';
-import { del as idbDel, get as idbGet, set as idbSet } from 'idb-keyval';
-import type {
-  AccentName, AppData, Category, DayKey, GoalDirection, Habit, HabitColor, HabitKind, HabitType, ISODate,
-  LogEntry, Period, Relapse, RewardsState, RunningTimer, Settings, ThemeName,
-} from '@/types';
-import { createInitialData, DATA_VERSION, DEFAULT_CATEGORIES, DEFAULT_SETTINGS, uid } from '@/lib/defaults';
-import { addDays, fromDayKey, logicalDayOf, logicalToday, toDayKey } from '@/lib/dates';
-import { ACCENTS, HABIT_COLORS } from '@/lib/colors';
+import { persist } from 'zustand/middleware';
+import type { AppData, Category, DayKey, Habit, ISODate, LogEntry, Relapse, RunningTimer, Settings } from '@/types';
+import { createInitialData, DATA_VERSION, DEFAULT_CATEGORIES, uid } from '@/lib/defaults';
+import { addDays, fromDayKey, logicalToday } from '@/lib/dates';
+import {
+  finiteNumber, hasOwn, includes, isRecord, isValidDayKey, MAX_TIMER_MS, METRIC_TYPES, migrate, nonEmptyString,
+  normalizeHabit, normalizeIso, normalizeSettings, round, sanitizeLogValue, sortByOrder, type HabitNormalizeOptions,
+} from '@/lib/migrate';
+import {
+  createDebouncedStorage, createMemoryBackend, idbBackend, indexedDbAvailable, sameIssue,
+  type PersistedState, type StorageIssue,
+} from './persistence';
 import { toast, useUI } from './ui';
 
 export interface LogPatch {
@@ -73,89 +76,7 @@ export interface AppStore {
   redo: () => void;
 }
 
-type UnknownRecord = Record<string, unknown>;
-
-const HABIT_TYPES: readonly HabitType[] = ['check', 'quantity', 'duration', 'rating', 'quit'];
-const METRIC_TYPES: readonly HabitType[] = ['quantity', 'duration', 'rating'];
-const PERIODS: readonly Period[] = ['day', 'week', 'month'];
-const THEMES: readonly ThemeName[] = ['midnight', 'oled', 'dusk', 'daylight'];
-const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
-const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function isRecord(v: unknown): v is UnknownRecord {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-function hasOwn(obj: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(obj, key);
-}
-
-function includes<T extends string>(list: readonly T[], v: unknown): v is T {
-  return typeof v === 'string' && (list as readonly string[]).includes(v);
-}
-
-function finiteNumber(v: unknown): number | undefined {
-  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
-}
-
-function nonEmptyString(v: unknown): string | undefined {
-  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
-}
-
-function meaningfulNote(v: unknown): string | undefined {
-  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
-}
-
-function round(n: number, decimals: number): number {
-  const f = 10 ** decimals;
-  return Math.round(n * f) / f;
-}
-
-function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n));
-}
-
-// rejects impossible dates like 2026-02-30
-export function isValidDayKey(v: unknown): v is DayKey {
-  return typeof v === 'string' && DAY_KEY_RE.test(v) && toDayKey(fromDayKey(v)) === v;
-}
-
-function normalizeIso(v: unknown): ISODate | undefined {
-  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.toISOString() : undefined;
-  if (typeof v !== 'string' || v.trim() === '') return undefined;
-  const ms = Date.parse(v);
-  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
-}
-
 const nowIso = (): ISODate => new Date().toISOString();
-
-function sortByOrder<T extends { order: number }>(items: readonly T[]): T[] {
-  return items.slice().sort((a, b) => a.order - b.order);
-}
-
-export function sanitizeLogValue(habit: Pick<Habit, 'type' | 'ratingMax'>, raw: number): number {
-  const n = Number.isFinite(raw) ? Math.max(0, raw) : 0;
-  switch (habit.type) {
-    case 'check':
-      return n > 0 ? 1 : 0;
-    case 'quantity':
-      return round(n, 2);
-    case 'duration':
-      return round(n, 1);
-    case 'rating': {
-      if (n <= 0) return 0;
-      const max = Number.isFinite(habit.ratingMax) && habit.ratingMax >= 1 ? habit.ratingMax : 10;
-      return clamp(round(n, 2), 1, max);
-    }
-    case 'quit':
-      return 0;
-  }
-}
-
-// anything longer is a forgotten timer: not restored on load and not credited in full
-const MAX_TIMER_MS = 12 * 60 * 60 * 1000;
-// allow for the clock changing a little between sessions
-const TIMER_CLOCK_SKEW_MS = 60_000;
 
 function logicalDayEndMs(day: DayKey, dayStartHour: number): number {
   const end = fromDayKey(addDays(day, 1));
@@ -201,6 +122,7 @@ export function countLogValueChanges(data: AppData, habitId: string, patch: Pick
 }
 
 // for atMost goals a logged 0 means "none today", which counts as a success
+
 function keepsZeroEntries(habit: Habit): boolean {
   return habit.kind === 'goal' && habit.direction === 'atMost' && includes(METRIC_TYPES, habit.type);
 }
@@ -208,7 +130,7 @@ function keepsZeroEntries(habit: Habit): boolean {
 function patchEntry(habit: Habit, existing: LogEntry | undefined, patch: LogPatch): LogEntry | undefined {
   const rawValue = patch.value !== undefined ? patch.value : existing?.value ?? 0;
   const value = sanitizeLogValue(habit, rawValue);
-  const note = meaningfulNote(patch.note !== undefined ? patch.note : existing?.note);
+  const note = nonEmptyString(patch.note !== undefined ? patch.note : existing?.note);
   const skipped = patch.skipped !== undefined ? patch.skipped === true : existing?.skipped === true;
   if (value === 0 && note === undefined && !skipped && !keepsZeroEntries(habit)) return undefined;
   const entry: LogEntry = { value, updatedAt: nowIso() };
@@ -284,84 +206,6 @@ function reorderItems<T extends { id: string; order: number }>(items: readonly T
   return changed ? result : null;
 }
 
-interface HabitNormalizeOptions {
-  order: number;
-  categoryIds: ReadonlySet<string>;
-  fallbackCategoryId: string;
-  dayStartHour: number;
-  now: ISODate;
-}
-
-function normalizeSchedule(raw: unknown): number[] {
-  if (!Array.isArray(raw)) return [...ALL_WEEKDAYS];
-  const days = new Set<number>();
-  for (const d of raw) {
-    if (typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6) days.add(d);
-  }
-  return days.size === 0 ? [...ALL_WEEKDAYS] : [...days].sort((a, b) => a - b);
-}
-
-function defaultRatingTarget(ratingMax: number): number {
-  return Math.max(1, Math.ceil(ratingMax * 0.7));
-}
-
-function normalizeTarget(type: HabitType, period: Period, raw: unknown, ratingMax: number): number {
-  const n = finiteNumber(raw);
-  const valid = n !== undefined && n >= 0 ? n : undefined;
-  switch (type) {
-    case 'check':
-      if (period === 'day') return 1;
-      return clamp(Math.round(valid ?? 1), 1, period === 'week' ? 7 : 31);
-    case 'quantity':
-      return valid === undefined ? 1 : round(valid, 2);
-    case 'duration':
-      return valid === undefined ? 30 : round(valid, 1);
-    case 'rating':
-      return valid === undefined ? defaultRatingTarget(ratingMax) : clamp(round(valid, 2), 1, ratingMax);
-    case 'quit':
-      return valid === undefined ? 0 : Math.round(valid);
-  }
-}
-
-function normalizeHabit(raw: unknown, opts: HabitNormalizeOptions): Habit | null {
-  if (!isRecord(raw)) return null;
-  const type: HabitType = includes(HABIT_TYPES, raw.type) ? raw.type : 'check';
-  const kind: HabitKind = raw.kind === 'metric' && includes(METRIC_TYPES, type) ? 'metric' : 'goal';
-  const period: Period = type === 'rating' || type === 'quit' ? 'day' : includes(PERIODS, raw.period) ? raw.period : 'day';
-  const ratingMaxRaw = finiteNumber(raw.ratingMax);
-  const ratingMax = ratingMaxRaw !== undefined && ratingMaxRaw >= 2 ? clamp(Math.round(ratingMaxRaw), 2, 100) : 10;
-  const direction: GoalDirection = raw.direction === 'atMost' ? 'atMost' : 'atLeast';
-  const stepRaw = finiteNumber(raw.step);
-  const step = stepRaw !== undefined && round(stepRaw, 2) > 0 ? round(stepRaw, 2) : type === 'duration' ? 15 : 1;
-  const createdAt = normalizeIso(raw.createdAt) ?? opts.now;
-  const categoryId = typeof raw.categoryId === 'string' && opts.categoryIds.has(raw.categoryId)
-    ? raw.categoryId
-    : opts.fallbackCategoryId;
-
-  return {
-    id: nonEmptyString(raw.id) ?? uid('h'),
-    name: nonEmptyString(raw.name) ?? 'Untitled habit',
-    icon: nonEmptyString(raw.icon) ?? '✨',
-    color: typeof raw.color === 'string' && hasOwn(HABIT_COLORS, raw.color) ? (raw.color as HabitColor) : 'violet',
-    categoryId,
-    description: typeof raw.description === 'string' ? raw.description : '',
-    type,
-    kind,
-    period,
-    schedule: normalizeSchedule(raw.schedule),
-    target: normalizeTarget(type, period, raw.target, ratingMax),
-    direction,
-    unit: typeof raw.unit === 'string' ? raw.unit : '',
-    step,
-    ratingMax,
-    quitStart: normalizeIso(raw.quitStart) ?? createdAt,
-    startDate: isValidDayKey(raw.startDate) ? raw.startDate : logicalDayOf(createdAt, opts.dayStartHour),
-    createdAt,
-    archived: raw.archived === true,
-    order: finiteNumber(raw.order) ?? opts.order,
-  };
-}
-
 function sameHabit(a: Habit, b: Habit): boolean {
   const keys = Object.keys(b) as Array<keyof Habit>;
   if (Object.keys(a).length !== keys.length) return false;
@@ -375,399 +219,7 @@ function sameHabit(a: Habit, b: Habit): boolean {
   return true;
 }
 
-function normalizeSettings(raw: unknown, fallback: Settings = DEFAULT_SETTINGS): Settings {
-  const s = isRecord(raw) ? raw : {};
-  const bool = (v: unknown, fb: boolean) => (typeof v === 'boolean' ? v : fb);
-  const hour = finiteNumber(s.dayStartHour);
-  return {
-    theme: includes(THEMES, s.theme) ? s.theme : fallback.theme,
-    accent: typeof s.accent === 'string' && hasOwn(ACCENTS, s.accent) ? (s.accent as AccentName) : fallback.accent,
-    weekStartsOn: s.weekStartsOn === 0 || s.weekStartsOn === 1 ? s.weekStartsOn : fallback.weekStartsOn,
-    dayStartHour: hour !== undefined ? clamp(Math.round(hour), 0, 6) : fallback.dayStartHour,
-    soundEnabled: bool(s.soundEnabled, fallback.soundEnabled),
-    confettiEnabled: bool(s.confettiEnabled, fallback.confettiEnabled),
-    reduceMotion: bool(s.reduceMotion, fallback.reduceMotion),
-    todayGroupBy: s.todayGroupBy === 'category' || s.todayGroupBy === 'none' ? s.todayGroupBy : fallback.todayGroupBy,
-    hideCompleted: bool(s.hideCompleted, fallback.hideCompleted),
-    userName: typeof s.userName === 'string' ? s.userName : fallback.userName,
-  };
-}
-
-function normalizeCategories(raw: unknown): Category[] {
-  if (!Array.isArray(raw)) return [];
-  const out: Category[] = [];
-  const seen = new Set<string>();
-  raw.forEach((c, index) => {
-    if (!isRecord(c)) return;
-    const id = nonEmptyString(c.id) ?? uid('c');
-    if (seen.has(id)) return;
-    seen.add(id);
-    out.push({
-      id,
-      name: nonEmptyString(c.name) ?? 'Category',
-      icon: nonEmptyString(c.icon) ?? '📁',
-      order: finiteNumber(c.order) ?? index,
-    });
-  });
-  return out;
-}
-
-function normalizeLogs(raw: unknown, habitsById: ReadonlyMap<string, Habit>, now: ISODate): AppData['logs'] {
-  const logs: AppData['logs'] = {};
-  if (!isRecord(raw)) return logs;
-  for (const [habitId, days] of Object.entries(raw)) {
-    const habit = habitsById.get(habitId);
-    if (!habit || !isRecord(days)) continue;
-    const habitLogs: Record<DayKey, LogEntry> = {};
-    for (const [day, e] of Object.entries(days)) {
-      if (!isValidDayKey(day) || !isRecord(e)) continue;
-      const entry: LogEntry = {
-        value: sanitizeLogValue(habit, finiteNumber(e.value) ?? 0),
-        updatedAt: normalizeIso(e.updatedAt) ?? now,
-      };
-      const note = meaningfulNote(e.note);
-      if (note !== undefined) entry.note = note;
-      if (e.skipped === true) entry.skipped = true;
-      habitLogs[day] = entry;
-    }
-    if (Object.keys(habitLogs).length > 0) logs[habitId] = habitLogs;
-  }
-  return logs;
-}
-
-function normalizeRelapses(raw: unknown, habitsById: ReadonlyMap<string, Habit>): Relapse[] {
-  if (!Array.isArray(raw)) return [];
-  const out: Relapse[] = [];
-  const seen = new Set<string>();
-  for (const r of raw) {
-    if (!isRecord(r) || typeof r.habitId !== 'string' || !habitsById.has(r.habitId)) continue;
-    const at = normalizeIso(r.at);
-    if (!at) continue;
-    let id = nonEmptyString(r.id) ?? uid('r');
-    if (seen.has(id)) id = uid('r');
-    seen.add(id);
-    const relapse: Relapse = { id, habitId: r.habitId, at };
-    const note = meaningfulNote(r.note);
-    if (note !== undefined) relapse.note = note;
-    out.push(relapse);
-  }
-  return out.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
-}
-
-function normalizeTimers(
-  raw: unknown,
-  habitsById: ReadonlyMap<string, Habit>,
-  dayStartHour: number,
-  now: ISODate,
-): AppData['timers'] {
-  const timers: AppData['timers'] = {};
-  if (!isRecord(raw)) return timers;
-  const nowMs = Date.parse(now);
-  for (const [habitId, t] of Object.entries(raw)) {
-    if (!isRecord(t) || habitsById.get(habitId)?.type !== 'duration') continue;
-    const startedAt = normalizeIso(t.startedAt);
-    if (!startedAt) continue;
-    if (Number.isFinite(nowMs)) {
-      const age = nowMs - Date.parse(startedAt);
-      if (age > MAX_TIMER_MS || age < -TIMER_CLOCK_SKEW_MS) continue;
-    }
-    timers[habitId] = {
-      habitId,
-      startedAt,
-      day: isValidDayKey(t.day) ? t.day : logicalDayOf(startedAt, dayStartHour),
-    };
-  }
-  return timers;
-}
-
-function normalizeDayNotes(raw: unknown): AppData['dayNotes'] {
-  const notes: AppData['dayNotes'] = {};
-  if (!isRecord(raw)) return notes;
-  for (const [day, note] of Object.entries(raw)) {
-    const text = meaningfulNote(note);
-    if (isValidDayKey(day) && text !== undefined) notes[day] = text;
-  }
-  return notes;
-}
-
-function normalizeRewards(raw: unknown): RewardsState {
-  const r = isRecord(raw) ? raw : {};
-  const unlocked: Record<string, ISODate> = {};
-  if (isRecord(r.unlocked)) {
-    for (const [id, at] of Object.entries(r.unlocked)) {
-      const iso = normalizeIso(at);
-      if (id && iso) unlocked[id] = iso;
-    }
-  }
-  const level = finiteNumber(r.lastSeenLevel);
-  const days = Array.isArray(r.celebratedPerfectDays)
-    ? [...new Set(r.celebratedPerfectDays.filter(isValidDayKey))].sort()
-    : [];
-  return {
-    unlocked,
-    lastSeenLevel: level !== undefined && level >= 1 ? Math.floor(level) : 1,
-    celebratedPerfectDays: days,
-  };
-}
-
-/** Fills in missing or invalid fields so older and hand-edited data still loads. */
-export function migrate(input: unknown): AppData {
-  const fresh = createInitialData();
-  if (!isRecord(input)) return fresh;
-  const now = fresh.meta.createdAt;
-
-  const settings = normalizeSettings(input.settings);
-
-  let categories = normalizeCategories(input.categories);
-  if (categories.length === 0) categories = fresh.categories;
-  const categoryIds = new Set(categories.map((c) => c.id));
-  const fallbackCategoryId = sortByOrder(categories)[0].id;
-
-  const hadHabits = Array.isArray(input.habits);
-  const rawHabits: unknown[] = Array.isArray(input.habits) ? input.habits : fresh.habits;
-  const habits: Habit[] = [];
-  const habitsById = new Map<string, Habit>();
-  rawHabits.forEach((raw, index) => {
-    const habit = normalizeHabit(raw, { order: index, categoryIds, fallbackCategoryId, dayStartHour: settings.dayStartHour, now });
-    if (!habit || habitsById.has(habit.id)) return;
-    habits.push(habit);
-    habitsById.set(habit.id, habit);
-  });
-
-  const meta = isRecord(input.meta) ? input.meta : {};
-  const lastBackupAt = normalizeIso(meta.lastBackupAt);
-
-  return {
-    version: DATA_VERSION,
-    habits,
-    categories,
-    logs: normalizeLogs(input.logs, habitsById, now),
-    relapses: normalizeRelapses(input.relapses, habitsById),
-    timers: normalizeTimers(input.timers, habitsById, settings.dayStartHour, now),
-    dayNotes: normalizeDayNotes(input.dayNotes),
-    settings,
-    rewards: normalizeRewards(input.rewards),
-    meta: {
-      createdAt: normalizeIso(meta.createdAt) ?? now,
-      ...(lastBackupAt ? { lastBackupAt } : {}),
-      onboarded: typeof meta.onboarded === 'boolean' ? meta.onboarded : hadHabits,
-    },
-  };
-}
-
 const STORAGE_KEY = 'habit-app';
-const WRITE_DEBOUNCE_MS = 200;
-const WRITE_MAX_WAIT_MS = 1000;
-// doubles after each failed write, up to MAX_WRITE_RETRY_MS
-const WRITE_RETRY_MS = 2000;
-const MAX_WRITE_RETRY_MS = 60_000;
-
-type PersistedState = { data: AppData };
-
-export type StorageIssueKind = 'read' | 'corrupt' | 'write';
-
-export interface StorageIssue {
-  kind: StorageIssueKind;
-  // set after a failed read, so the stored data is never overwritten
-  writesBlocked: boolean;
-  at: number;
-  message?: string;
-}
-
-export interface KeyValueBackend {
-  get: (key: string) => Promise<unknown>;
-  set: (key: string, value: unknown) => Promise<void>;
-  del: (key: string) => Promise<void>;
-}
-
-function indexedDbAvailable(): boolean {
-  try {
-    return typeof indexedDB !== 'undefined' && indexedDB !== null;
-  } catch {
-    return false;
-  }
-}
-
-function createMemoryBackend(): KeyValueBackend {
-  const map = new Map<string, unknown>();
-  const clone = <T,>(v: T): T => (typeof structuredClone === 'function' ? structuredClone(v) : v);
-  return {
-    get: async (key) => clone(map.get(key)),
-    set: async (key, value) => {
-      map.set(key, clone(value));
-    },
-    del: async (key) => {
-      map.delete(key);
-    },
-  };
-}
-
-const idbBackend: KeyValueBackend = {
-  get: (key) => idbGet(key),
-  set: (key, value) => idbSet(key, value),
-  del: (key) => idbDel(key),
-};
-
-export interface DebouncedStorage extends PersistStorage<PersistedState, void> {
-  flush: () => Promise<void>;
-  hadStoredValue: () => boolean;
-  issue: () => StorageIssue | null;
-  pendingSince: () => number;
-  /** Call after loading `data` so it isn't written straight back. */
-  markSaved: (data: AppData) => void;
-}
-
-function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === 'string') return err;
-  return String(err);
-}
-
-function sameIssue(a: StorageIssue | null, b: StorageIssue | null): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return a.kind === b.kind && a.writesBlocked === b.writesBlocked;
-}
-
-const ISSUE_LOG: Record<StorageIssueKind, string> = {
-  read: 'Could not read the stored data. Nothing will be saved this session so your data stays intact.',
-  corrupt: 'The stored record is unreadable. Nothing will be saved this session so it stays recoverable.',
-  write: 'Could not save data to IndexedDB. The change is kept and will be retried.',
-};
-
-export function createDebouncedStorage(
-  backend: KeyValueBackend,
-  hooks: { onSaved?: () => void; onIssue?: (issue: StorageIssue | null) => void } = {},
-): DebouncedStorage {
-  let pending: { name: string; value: StorageValue<PersistedState> } | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let firstPendingAt = 0;
-  let lastWrittenData: AppData | null = null;
-  // hold writes until the first read succeeds, so defaults can't overwrite real data
-  let loaded = false;
-  let blocked = false;
-  let storedValueFound = false;
-  let issue: StorageIssue | null = null;
-  let retryDelay = WRITE_RETRY_MS;
-  // one write at a time, so a retry can't race the write it's retrying
-  let chain: Promise<void> = Promise.resolve();
-
-  const cancelTimer = () => {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-  };
-
-  const setIssue = (next: StorageIssue | null) => {
-    if (sameIssue(issue, next)) return;
-    issue = next;
-    if (next) console.warn(`[habit] ${ISSUE_LOG[next.kind]}`, next.message ?? '');
-    hooks.onIssue?.(next);
-  };
-
-  const fail = (kind: StorageIssueKind, err: unknown) => {
-    setIssue({ kind, writesBlocked: kind !== 'write', at: Date.now(), message: errorMessage(err) });
-  };
-
-  const scheduleRetry = () => {
-    if (!pending || blocked) return;
-    cancelTimer();
-    timer = setTimeout(() => void flush(), retryDelay);
-    retryDelay = Math.min(retryDelay * 2, MAX_WRITE_RETRY_MS);
-  };
-
-  const writeOnce = async (): Promise<void> => {
-    if (!pending || !loaded || blocked) return;
-    const queued = pending;
-    const data = queued.value.state.data;
-    if (data === lastWrittenData) {
-      if (pending === queued) pending = null;
-      return;
-    }
-    try {
-      await backend.set(queued.name, queued.value);
-      lastWrittenData = data;
-      // a change queued during the write has its own timer, keep it
-      if (pending === queued) pending = null;
-      retryDelay = WRITE_RETRY_MS;
-      setIssue(null);
-      hooks.onSaved?.();
-    } catch (err) {
-      lastWrittenData = null;
-      fail('write', err);
-      scheduleRetry();
-    }
-  };
-
-  const flush = (): Promise<void> => {
-    cancelTimer();
-    chain = chain.then(writeOnce, writeOnce);
-    return chain;
-  };
-
-  return {
-    async getItem(name) {
-      let raw: unknown;
-      try {
-        raw = await backend.get(name);
-      } catch (err) {
-        blocked = true;
-        fail('read', err);
-        throw err instanceof Error ? err : new Error(errorMessage(err));
-      }
-      if (raw === undefined || raw === null) {
-        storedValueFound = false;
-        loaded = true;
-        return null; // first run
-      }
-      let value: unknown = raw;
-      if (typeof value === 'string') {
-        try {
-          value = JSON.parse(value);
-        } catch {
-          value = undefined;
-        }
-      }
-      if (!isRecord(value) || !isRecord(value.state) || !isRecord((value.state as UnknownRecord).data)) {
-        // something is stored but we can't read it. leave it alone, it may be recoverable by hand
-        blocked = true;
-        const err = new Error('The stored record is not readable Cadence data.');
-        fail('corrupt', err);
-        throw err;
-      }
-      storedValueFound = true;
-      loaded = true;
-      return {
-        state: value.state as PersistedState,
-        version: typeof value.version === 'number' ? value.version : undefined,
-      };
-    },
-    setItem(name, value) {
-      if (blocked) return;
-      if (!pending) firstPendingAt = Date.now();
-      pending = { name, value };
-      cancelTimer();
-      const wait = Math.max(0, Math.min(WRITE_DEBOUNCE_MS, firstPendingAt + WRITE_MAX_WAIT_MS - Date.now()));
-      timer = setTimeout(() => void flush(), wait);
-    },
-    async removeItem(name) {
-      if (blocked) return;
-      cancelTimer();
-      pending = null;
-      lastWrittenData = null;
-      await backend.del(name);
-    },
-    flush,
-    hadStoredValue: () => storedValueFound,
-    issue: () => issue,
-    pendingSince: () => (pending ? firstPendingAt : 0),
-    markSaved(data) {
-      cancelTimer();
-      pending = null;
-      lastWrittenData = data;
-    },
-  };
-}
-
 // after a save, tell other tabs to reload so they don't overwrite it with stale data
 const TAB_ID = uid('tab');
 const useIndexedDb = indexedDbAvailable();
@@ -782,7 +234,6 @@ function openSyncChannel(): BroadcastChannel | null {
 }
 
 const syncChannel = openSyncChannel();
-
 // assigned once the store exists
 let publishStorageIssue: ((issue: StorageIssue | null) => void) | null = null;
 
@@ -809,6 +260,7 @@ export function flushPersistence(): Promise<void> {
 }
 
 let persistRequested = false;
+
 function requestPersistentStorage(): void {
   if (persistRequested) return;
   persistRequested = true;
@@ -829,7 +281,6 @@ interface HistoryEntry {
 const HISTORY_LIMIT = 50;
 let past: HistoryEntry[] = [];
 let future: HistoryEntry[] = [];
-
 // merged key by key so undoing a log doesn't also revert, say, a theme change
 const KEYED_BRANCHES = new Set<keyof AppData>(['timers', 'settings', 'rewards', 'meta']);
 
@@ -952,7 +403,7 @@ export const useStore = create<AppStore>()(
 
         addRelapse: (habitId, at, note) => {
           const relapse: Relapse = { id: uid('r'), habitId, at: normalizeIso(at) ?? nowIso() };
-          const text = meaningfulNote(note);
+          const text = nonEmptyString(note);
           if (text !== undefined) relapse.note = text;
           commit((d) => (findHabit(d, habitId) ? { ...d, relapses: insertRelapseSorted(d.relapses, relapse) } : d), true);
           return relapse;
@@ -963,7 +414,7 @@ export const useStore = create<AppStore>()(
             const prev = d.relapses.find((r) => r.id === id);
             if (!prev) return d;
             const next: Relapse = { id: prev.id, habitId: prev.habitId, at: normalizeIso(patch.at) ?? prev.at };
-            const note = meaningfulNote(patch.note !== undefined ? patch.note : prev.note);
+            const note = nonEmptyString(patch.note !== undefined ? patch.note : prev.note);
             if (note !== undefined) next.note = note;
             if (next.at === prev.at && next.note === prev.note) return d;
             return { ...d, relapses: insertRelapseSorted(d.relapses.filter((r) => r.id !== id), next) };
@@ -1132,7 +583,7 @@ export const useStore = create<AppStore>()(
         setDayNote: (day, note) => {
           commit((d) => {
             if (!isValidDayKey(day)) return d;
-            const text = meaningfulNote(note);
+            const text = nonEmptyString(note);
             if (text === undefined) return hasOwn(d.dayNotes, day) ? { ...d, dayNotes: withoutKey(d.dayNotes, day) } : d;
             if (d.dayNotes[day] === text) return d;
             return { ...d, dayNotes: { ...d.dayNotes, [day]: text } };
@@ -1150,13 +601,14 @@ export const useStore = create<AppStore>()(
         unlockAchievements: (ids) => {
           commit((d) => {
             const stamp = nowIso();
-            let unlocked = d.rewards.unlocked;
+            const unlocked = { ...d.rewards.unlocked };
+            let changed = false;
             for (const id of ids) {
               if (typeof id !== 'string' || id === '' || hasOwn(unlocked, id)) continue;
-              if (unlocked === d.rewards.unlocked) unlocked = { ...unlocked };
               unlocked[id] = stamp;
+              changed = true;
             }
-            return unlocked === d.rewards.unlocked ? d : { ...d, rewards: { ...d.rewards, unlocked } };
+            return changed ? { ...d, rewards: { ...d.rewards, unlocked } } : d;
           }, false);
         },
 

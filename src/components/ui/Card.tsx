@@ -32,20 +32,22 @@ export function Card({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(e);
-    if (e.defaultPrevented || !clickable || e.target !== e.currentTarget) return;
+    if (e.defaultPrevented || e.target !== e.currentTarget) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       e.currentTarget.click();
     }
   };
 
+  // a clickable card behaves as a button, so it also gets the role, focus and keys of one
+  const behavior = clickable
+    ? { role: role ?? 'button', tabIndex: tabIndex ?? 0, onClick, onKeyDown: handleKeyDown }
+    : { role, tabIndex, onClick, onKeyDown };
+
   return (
     <div
       ref={ref}
-      role={role ?? (clickable ? 'button' : undefined)}
-      tabIndex={tabIndex ?? (clickable ? 0 : undefined)}
-      onClick={onClick}
-      onKeyDown={handleKeyDown}
+      {...behavior}
       className={cn(
         'card relative',
         paddings[padding],

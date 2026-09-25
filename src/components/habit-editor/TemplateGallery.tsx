@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, PenLine, Search, Sparkles } from 'lucide-react';
 import type { Category } from '@/types';
@@ -104,7 +104,7 @@ export function TemplateGallery({ existingNames, onPick, onScratch }: TemplateGa
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<string>(ALL);
 
-  const isAdded = (t: HabitTemplate) => existingNames.has(t.name.trim().toLowerCase());
+  const isAdded = useCallback((t: HabitTemplate) => existingNames.has(t.name.trim().toLowerCase()), [existingNames]);
 
   const categoryChips = useMemo(() => {
     const ids: string[] = [];
@@ -120,7 +120,7 @@ export function TemplateGallery({ existingNames, onPick, onScratch }: TemplateGa
     [categories, filter, query],
   );
 
-  const suggestions = useMemo(() => ALL_TEMPLATES.filter((t) => !isAdded(t)).slice(0, 8), [existingNames]);
+  const suggestions = useMemo(() => ALL_TEMPLATES.filter((t) => !isAdded(t)).slice(0, 8), [isAdded]);
 
   const searching = query.trim() !== '';
   const showSuggestions = !searching && filter === ALL && suggestions.length > 0;
