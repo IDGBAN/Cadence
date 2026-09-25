@@ -1,7 +1,7 @@
 {
   "name": "cadence",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A local-first habit tracker with streaks, XP and correlations between habits.",
   "type": "module",
   "engines": {

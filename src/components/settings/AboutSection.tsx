@@ -5,9 +5,8 @@ import { openShortcuts } from '@/components/layout/shellStore';
 import { APP_NAME } from '@/components/layout/routeMeta';
 import { actions } from '@/store/store';
 import { toast } from '@/store/ui';
+import { version as APP_VERSION } from '../../../package.json';
 import { SettingDivider, SettingNote, SettingRow, SettingsSection } from './SettingsSection';
-
-export const APP_VERSION = '1.0.0';
 
 const CREDITS = [
   { label: 'React 19 + TypeScript', detail: 'app' },
