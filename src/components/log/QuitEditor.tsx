@@ -44,7 +44,7 @@ function RelapseRow({ relapse, disabled }: { relapse: Relapse; disabled: boolean
 
   const remove = async () => {
     const ok = await confirmDialog({
-      title: 'Delete this relapse?',
+      title: 'Delete this slip?',
       description: 'Your clean count will be worked out again as if it never happened.',
       confirmLabel: 'Delete',
       tone: 'danger',
@@ -68,7 +68,7 @@ function RelapseRow({ relapse, disabled }: { relapse: Relapse; disabled: boolean
           type="time"
           value={formatTime(relapse.at)}
           disabled={disabled}
-          aria-label="Relapse time"
+          aria-label="Slip time"
           inputClassName="tabular"
           onChange={(e) => setTime(e.target.value)}
         />
@@ -79,7 +79,7 @@ function RelapseRow({ relapse, disabled }: { relapse: Relapse; disabled: boolean
           value={note}
           disabled={disabled}
           placeholder="What happened? (optional)"
-          aria-label="Relapse note"
+          aria-label="Slip note"
           onChange={(e) => setNote(e.target.value)}
           onBlur={commitNote}
           onKeyDown={(e) => {
@@ -91,7 +91,7 @@ function RelapseRow({ relapse, disabled }: { relapse: Relapse; disabled: boolean
         />
       </div>
       <IconButton
-        label="Delete relapse"
+        label="Delete slip"
         size="sm"
         disabled={disabled}
         onClick={remove}
@@ -141,7 +141,7 @@ export function QuitEditor({ habit, day, disabled }: QuitEditorProps) {
         </span>
         <div className="min-w-0">
           <div className="font-display text-base font-semibold tracking-tight text-fg">
-            {clean ? 'Clean day' : `${pluralize(relapses.length, 'relapse')} on this day`}
+            {clean ? 'Clean day' : `${pluralize(relapses.length, 'slip')} on this day`}
           </div>
           <div className="text-[13px] text-fg-3">
             {clean
@@ -176,7 +176,7 @@ export function QuitEditor({ habit, day, disabled }: QuitEditorProps) {
       )}
 
       <Button variant="secondary" size="sm" icon={<Plus />} disabled={disabled} onClick={add} className="mt-4">
-        Add a relapse
+        Add a slip
       </Button>
     </div>
   );

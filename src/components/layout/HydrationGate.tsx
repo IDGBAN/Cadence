@@ -94,18 +94,18 @@ function StorageErrorScreen({ issue }: { issue: StorageIssue }) {
         <span aria-hidden="true">{corrupt ? '🧩' : '🔒'}</span>
       </div>
       <h1 id="storage-error-title" className="mt-6 font-display text-2xl font-semibold tracking-tight text-fg">
-        Cadence couldn’t open your data
+        Cadence couldn't open your data
       </h1>
       <div id="storage-error-body" className="mt-3 max-w-md space-y-3 text-sm leading-relaxed text-fg-3">
         <p>
           {corrupt
-            ? 'There’s data saved in this browser, but Cadence can’t read it.'
-            : 'Your habits are still on this device, but Cadence can’t read them right now.'}{' '}
-          Reloading usually fixes it. Nothing was changed or deleted, and Cadence won’t save anything until it
+            ? "There's data saved in this browser, but Cadence can't read it."
+            : "Your habits are still on this device, but Cadence can't read them right now."}{' '}
+          Reloading usually fixes it. Nothing was changed or deleted, and Cadence won't save anything until it
           can read your data again.
         </p>
         <p className="text-fg-4">
-          If this keeps happening, close any other Cadence tabs and check that you’re not in a private window.
+          If this keeps happening, close any other Cadence tabs and check that you're not in a private window.
         </p>
       </div>
       <button

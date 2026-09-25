@@ -29,7 +29,7 @@ export default function RewardsPage() {
           </>
         }
         title="Rewards"
-        subtitle="Keeping up with your habits earns XP, levels and badges. Here's what you've earned and what's next."
+        subtitle="The XP, levels and badges you've earned by logging your habits, and what comes next."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="xp" size="md">

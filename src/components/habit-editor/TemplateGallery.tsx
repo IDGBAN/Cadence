@@ -194,7 +194,7 @@ export function TemplateGallery({ existingNames, onPick, onScratch }: TemplateGa
         <EmptyState
           icon="🔍"
           title="No templates match"
-          description={`Nothing for “${query.trim()}”. Try starting from scratch.`}
+          description={`Nothing for "${query.trim()}". Try starting from scratch.`}
         />
       ) : (
         <div className="flex flex-col gap-4">

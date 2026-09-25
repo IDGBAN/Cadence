@@ -167,7 +167,7 @@ function LogEditor({ open, habitId, day, focusNote, onClose }: LogEditorProps) {
         title: 'Clear this log?',
         description:
           relapses.length > 0
-            ? `This removes the note and ${relapses.length === 1 ? 'the relapse' : `all ${relapses.length} relapses`} on ${formatDayShort(day)}.`
+            ? `This removes the note and ${relapses.length === 1 ? 'the slip' : `all ${relapses.length} slips`} on ${formatDayShort(day)}.`
             : `This removes the value, note and skip for ${habit.name} on ${formatDayShort(day)}.`,
         confirmLabel: 'Clear',
         tone: 'danger',

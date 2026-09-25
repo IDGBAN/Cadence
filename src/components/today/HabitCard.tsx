@@ -236,7 +236,7 @@ export const HabitCard = memo(function HabitCard({ item, day, today, index, onSe
           {skipped && (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-fg-3">
-                Skipped on {formatDayShort(day)}. It won’t count for or against your streak.
+                Skipped on {formatDayShort(day)}. It won't count for or against your streak.
               </p>
               <Chip size="sm" icon={<Undo2 aria-hidden />} onClick={() => setSkippedWithFeedback(habit.id, day, false)}>
                 Unskip

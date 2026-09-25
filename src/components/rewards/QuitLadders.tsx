@@ -80,7 +80,7 @@ function QuitLadder({ habit }: { habit: Habit }) {
                 <div className="flex w-11 flex-col items-center gap-1">
                   <span
                     className={cn(
-                      'flex size-8 items-center justify-center rounded-full border text-[11px] font-bold tabular transition-colors',
+                      'relative flex size-8 items-center justify-center rounded-full border text-[11px] font-bold tabular transition-colors',
                       reached && 'habit-tint-strong habit-border habit-text',
                       !reached && isNext && 'habit-border habit-tint habit-text animate-pulse-ring',
                       !reached && !isNext && 'border-line bg-surface text-fg-3',
@@ -133,7 +133,7 @@ export function QuitLadders() {
         icon={<Ban aria-hidden />}
         subtitle={
           quitHabits.length === 0
-            ? 'Habits you’re quitting show up here'
+            ? "Habits you're quitting show up here"
             : `Tracking ${pluralize(quitHabits.length, 'habit')}`
         }
       />

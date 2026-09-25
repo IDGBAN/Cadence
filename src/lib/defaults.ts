@@ -57,7 +57,7 @@ const base = {
 export const STARTER_TEMPLATES: HabitTemplate[] = [
   {
     ...base, templateId: 'good-sleep', name: 'Good Sleep', icon: '😴', color: 'indigo', categoryId: 'cat_sleep',
-    type: 'rating', target: 7, blurb: 'Rate last night’s sleep quality',
+    type: 'rating', target: 7, blurb: "Rate last night's sleep quality",
     description: 'How well you slept last night. Log it on the day you wake up. 7+ counts as good sleep.',
   },
   {
@@ -131,15 +131,15 @@ export const RECOMMENDED_TEMPLATES: HabitTemplate[] = [
   },
   {
     ...base, templateId: 'no-doomscroll', name: 'No Doomscrolling', icon: '📵', color: 'pink', categoryId: 'cat_quit',
-    type: 'quit', target: 30, blurb: 'Count clean days, reset on relapse',
-    description: 'Endless feeds and short videos late at night. If you slip, log a relapse and the counter starts over.',
+    type: 'quit', target: 30, blurb: 'Count clean days, reset on a slip',
+    description: 'Endless feeds and short videos late at night. If you slip, log it and the counter starts over.',
   },
 ];
 
 export const EXTRA_TEMPLATES: HabitTemplate[] = ([
   { ...base, templateId: 'meditate', name: 'Meditate', icon: '🧘', color: 'teal', categoryId: 'cat_mind', type: 'duration', target: 10, step: 5, blurb: '10 quiet minutes' },
   { ...base, templateId: 'journal', name: 'Journal', icon: '✍️', color: 'violet', categoryId: 'cat_mind', type: 'check', target: 1, blurb: 'A few lines every day' },
-  { ...base, templateId: 'gratitude', name: 'Gratitude', icon: '🙏', color: 'amber', categoryId: 'cat_mind', type: 'quantity', target: 3, unit: 'things', step: 1, blurb: '3 things you’re grateful for' },
+  { ...base, templateId: 'gratitude', name: 'Gratitude', icon: '🙏', color: 'amber', categoryId: 'cat_mind', type: 'quantity', target: 3, unit: 'things', step: 1, blurb: "3 things you're grateful for" },
   { ...base, templateId: 'stress', name: 'Stress', icon: '🌪️', color: 'slate', categoryId: 'cat_mind', type: 'rating', kind: 'metric', target: 5, blurb: 'Stress level, track only' },
   { ...base, templateId: 'walk', name: 'Walk Outside', icon: '🚶', color: 'emerald', categoryId: 'cat_fitness', type: 'duration', target: 30, step: 10, blurb: '30 minutes outside' },
   { ...base, templateId: 'steps', name: 'Steps', icon: '👟', color: 'lime', categoryId: 'cat_fitness', type: 'quantity', target: 8000, unit: 'steps', step: 1000, blurb: '8k steps a day' },

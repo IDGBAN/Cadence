@@ -335,7 +335,7 @@ export function AchievementCase() {
             {filter === 'unlocked'
               ? 'No badges yet. Complete a habit today and your first one is close.'
               : filter === 'locked'
-                ? 'You’ve unlocked every badge.'
+                ? "You've unlocked every badge."
                 : 'No achievements are defined.'}
           </p>
         </div>

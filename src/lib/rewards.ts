@@ -257,7 +257,7 @@ const RULES: AchievementRule[] = [
     { id: 'quit-90', name: 'New Normal', description: 'Stay clean 90 days in a row on a quit habit.', icon: '🌅', tier: 'gold', target: 90, measure: (s) => s.bestQuitDays },
     { id: 'quit-180', name: 'Half-Year Free', description: 'Stay clean 180 days in a row on a quit habit.', icon: '🦅', tier: 'platinum', target: 180, measure: (s) => s.bestQuitDays },
     { id: 'quit-365', name: 'Free Spirit', description: 'Stay clean for a whole year on a quit habit.', icon: '🕊️', tier: 'diamond', target: 365, measure: (s) => s.bestQuitDays },
-    { id: 'phoenix', name: 'Phoenix', description: 'Get back to 7 clean days after a relapse.', icon: '🌄', tier: 'silver', target: 7, measure: (s) => s.phoenixDays },
+    { id: 'phoenix', name: 'Phoenix', description: 'Get back to 7 clean days after a slip.', icon: '🌄', tier: 'silver', target: 7, measure: (s) => s.phoenixDays },
   ]),
   ...rules('secret', [
     { id: 'night-owl', name: 'Night Owl', description: 'Log a habit between midnight and 5 AM.', icon: '🦉', tier: 'bronze', target: 1, measure: (s) => flag(s.nightOwl) },
@@ -265,7 +265,7 @@ const RULES: AchievementRule[] = [
     { id: 'comeback', name: 'The Comeback', description: 'Complete a habit after 14+ days of not logging anything.', icon: '🔄', tier: 'silver', target: 1, measure: (s) => flag(s.comeback) },
     { id: 'overachiever', name: 'Overachiever', description: 'Log double your daily target on a quantity or duration habit.', icon: '🚀', tier: 'bronze', target: 1, measure: (s) => flag(s.doubled) },
     { id: 'top-marks', name: 'Top Marks', description: 'Give a rating habit its maximum score.', icon: '🥇', tier: 'bronze', target: 1, measure: (s) => flag(s.topMarks) },
-    { id: 'fresh-start', name: 'Fresh Start', description: 'Log a habit on New Year’s Day.', icon: '🎉', tier: 'bronze', target: 1, measure: (s) => flag(s.newYear) },
+    { id: 'fresh-start', name: 'Fresh Start', description: "Log a habit on New Year's Day.", icon: '🎉', tier: 'bronze', target: 1, measure: (s) => flag(s.newYear) },
   ]),
 ];
 

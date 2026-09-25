@@ -40,7 +40,7 @@ function exportHabitCsv(data: AppData, habit: Habit): void {
     toast({ title: 'CSV exported', description: `All logged days for ${habit.name}.`, tone: 'success', icon: '📄' });
   } catch (err) {
     toast({
-      title: 'Couldn’t export the CSV',
+      title: "Couldn't export the CSV",
       description: err instanceof Error ? err.message : 'Please try again.',
       tone: 'danger',
       icon: '⚠️',

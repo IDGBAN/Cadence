@@ -53,7 +53,7 @@ All of the habit math lives in pure functions under `src/lib`: statuses, streaks
 
 ```
 src/
-  lib/          habit engine, formatting, XP and achievements, insights, backup
+  lib/          habit engine, formatting, XP and achievements, insights, backup, migration
   store/        app state, persistence, hooks
   components/   ui kit plus one folder per screen
   pages/        routes

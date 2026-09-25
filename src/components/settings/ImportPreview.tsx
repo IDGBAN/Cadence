@@ -203,14 +203,14 @@ export function ImportPreviewModal({ preview, onCancel, onConfirm }: ImportPrevi
 
           {dropped && dropped.total > 0 && (
             <SettingNote tone="warning" icon={<TriangleAlert aria-hidden="true" />}>
-              Part of this file is damaged and <strong className="font-semibold text-fg">won’t be imported</strong>:{' '}
+              Part of this file is damaged and <strong className="font-semibold text-fg">won't be imported</strong>:{' '}
               {describeDropped(dropped)}. The numbers above are what will be restored.
             </SettingNote>
           )}
           {dropped && dropped.timers > 0 && (
             <p className="text-[13px] leading-relaxed text-fg-3">
               {dropped.timers === 1 ? 'A running stopwatch' : `${dropped.timers} running stopwatches`} in the file
-              won’t be restored, since old timers would count hours you didn’t spend.
+              won't be restored, since old timers would count hours you didn't spend.
             </p>
           )}
 

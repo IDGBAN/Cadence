@@ -72,7 +72,7 @@ const STUDY_NOTES = ['Finished chapter 4', 'Practice exam: 82%', 'Flashcards + s
 const SLEEP_NOTES = ['Woke up at 3am', 'Slept like a rock', 'Noisy neighbours', 'Vivid dreams', 'Too warm in the room'];
 const MOOD_NOTES = ['Great day with friends', 'Stressful meeting', 'Sunny walk after lunch', 'Bit flat today', 'Good news at work'];
 const FOOD_NOTES = ['Meal-prepped for the week', 'Pizza night 🍕', 'Big salad for lunch', 'Too many snacks', 'Cooked a proper dinner'];
-const READ_NOTES = ['Couldn’t put it down', 'Started a new novel', 'A few pages before bed', 'Finished the book!'];
+const READ_NOTES = ["Couldn't put it down", 'Started a new novel', 'A few pages before bed', 'Finished the book!'];
 const RELAPSE_NOTES = ['Scrolled until 1am', 'Stressful day, zoned out on my phone', 'Short videos rabbit hole', ''];
 const DAY_NOTES = [
   'Felt really productive today.',
@@ -86,7 +86,7 @@ const DAY_NOTES = [
   'Phone stayed in the other room all evening. Slept so much better.',
   'Exam week is coming. Keeping sleep a priority.',
   'Coffee with an old friend.',
-  'Lazy Sunday, and that’s okay.',
+  "Lazy Sunday, and that's okay.",
 ];
 
 // steady, then a rough patch around 40 days ago, then a climb over the last four weeks. it's kept

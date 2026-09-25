@@ -282,7 +282,7 @@ export function OnboardingHost() {
                 </ul>
 
                 <SettingNote className="mt-4" tone="accent" icon={<Lock aria-hidden="true" />}>
-                  Everything stays in this browser. There’s no account, cloud sync or tracking, and backups are files
+                  Everything stays in this browser. There's no account, cloud sync or tracking, and backups are files
                   you keep.
                 </SettingNote>
               </div>
@@ -332,7 +332,7 @@ export function OnboardingHost() {
                 <StepHeading
                   eyebrow="Your habits"
                   title="A few habits to start with"
-                  subtitle="Untick anything you don’t need. You can add, edit or archive habits later on the Habits page."
+                  subtitle="Untick anything you don't need. You can add, edit or archive habits later on the Habits page."
                 />
                 <HabitChecklist removed={removed} onToggle={(habit, keep) => void toggleHabit(habit, keep)} />
               </div>
@@ -347,7 +347,7 @@ export function OnboardingHost() {
                 />
                 <LoggingTour />
                 <SettingNote className="mt-4" icon={<ArrowLeft aria-hidden="true" />}>
-                  Missed a day? Edit any past day from the week strip on Today, from History, or from a habit’s own
+                  Missed a day? Edit any past day from the week strip on Today, from History, or from a habit's own
                   calendar.
                 </SettingNote>
               </div>
@@ -363,7 +363,7 @@ export function OnboardingHost() {
                     🚀
                   </span>
                   <h2 className="mt-4 font-display text-2xl font-semibold tracking-tight text-fg">
-                    You’re all set{displayName === '' ? '' : `, ${displayName}`}
+                    You're all set{displayName === '' ? '' : `, ${displayName}`}
                   </h2>
                   <p className="mt-2 text-[14px] text-fg-2">
                     {habits.length} {habits.length === 1 ? 'habit is' : 'habits are'} ready. Log one today to start a

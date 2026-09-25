@@ -699,7 +699,7 @@ function warnAboutWrites(issue: StorageIssue | null): void {
   if (issue?.kind === 'write') {
     if (writeFailureToastId !== null) return;
     writeFailureToastId = toast({
-      title: 'Cadence can’t save right now',
+      title: "Cadence can't save right now",
       description: 'Your changes are only in this tab. Export a backup from Settings to be safe.',
       tone: 'danger',
       icon: '⚠️',

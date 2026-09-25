@@ -31,7 +31,7 @@ export function exportJson(data: AppData): string {
 
 function downloadText(text: string, filename: string, mime: string): void {
   if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
-    throw new Error('This browser can’t download files.');
+    throw new Error("This browser can't download files.");
   }
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -137,18 +137,18 @@ function validateBackup(text: string): { data: Record<string, unknown>; exported
   try {
     parsed = JSON.parse(text.replace(/^\uFEFF/, ''));
   } catch {
-    throw new Error('This file isn’t valid JSON. Pick a .json backup exported from Cadence.');
+    throw new Error("This file isn't valid JSON. Pick a .json backup exported from Cadence.");
   }
 
   if (!isRecord(parsed)) {
-    throw new Error('This file doesn’t contain Cadence data.');
+    throw new Error("This file doesn't contain Cadence data.");
   }
 
   let data: unknown = parsed;
   if ('app' in parsed) {
     if (parsed.app !== BACKUP_APP_ID && !LEGACY_APP_IDS.has(parsed.app as string)) {
-      const from = typeof parsed.app === 'string' && parsed.app.trim() !== '' ? ` (“${parsed.app}”)` : '';
-      throw new Error(`This backup was made by a different app${from}, so it can’t be imported.`);
+      const from = typeof parsed.app === 'string' && parsed.app.trim() !== '' ? ` ("${parsed.app}")` : '';
+      throw new Error(`This backup was made by a different app${from}, so it can't be imported.`);
     }
     if (!isRecord(parsed.data)) {
       throw new Error('This backup is missing its data section. The file might be damaged.');
@@ -160,7 +160,7 @@ function validateBackup(text: string): { data: Record<string, unknown>; exported
   }
 
   if (!isRecord(data)) {
-    throw new Error('This file doesn’t contain Cadence data.');
+    throw new Error("This file doesn't contain Cadence data.");
   }
 
   const envelopeVersion = isRecord(parsed) && data !== parsed ? parsed.version : undefined;
@@ -170,27 +170,27 @@ function validateBackup(text: string): { data: Record<string, unknown>; exported
   }
 
   if (!('habits' in data)) {
-    throw new Error('This file has no habits in it. It doesn’t look like a Cadence backup.');
+    throw new Error("This file has no habits in it. It doesn't look like a Cadence backup.");
   }
   if (!Array.isArray(data.habits)) {
-    throw new Error('The habits in this file are unreadable, so it can’t be imported.');
+    throw new Error("The habits in this file are unreadable, so it can't be imported.");
   }
   const badIndex = data.habits.findIndex((h) => !isRecord(h) || typeof h.id !== 'string' || h.id.trim() === '');
   if (badIndex >= 0) {
-    throw new Error(`Habit #${badIndex + 1} in this file is damaged (it has no id), so the backup can’t be imported.`);
+    throw new Error(`Habit #${badIndex + 1} in this file is damaged (it has no id), so the backup can't be imported.`);
   }
   const reservedIndex = data.habits.findIndex((h) => RESERVED_IDS.has((h as { id: string }).id));
   if (reservedIndex >= 0) {
-    throw new Error(`Habit #${reservedIndex + 1} in this file has an id Cadence can’t use, so the backup can’t be imported.`);
+    throw new Error(`Habit #${reservedIndex + 1} in this file has an id Cadence can't use, so the backup can't be imported.`);
   }
   if ('logs' in data && data.logs !== undefined && !isRecord(data.logs)) {
-    throw new Error('The logs in this file are damaged, so the backup can’t be imported.');
+    throw new Error("The logs in this file are damaged, so the backup can't be imported.");
   }
   if ('relapses' in data && data.relapses !== undefined && !Array.isArray(data.relapses)) {
-    throw new Error('The relapse history in this file is damaged, so the backup can’t be imported.');
+    throw new Error("The relapse history in this file is damaged, so the backup can't be imported.");
   }
   if ('categories' in data && data.categories !== undefined && !Array.isArray(data.categories)) {
-    throw new Error('The categories in this file are damaged, so the backup can’t be imported.');
+    throw new Error("The categories in this file are damaged, so the backup can't be imported.");
   }
 
   const exportedAt = data !== parsed ? validExportedAt(parsed.exportedAt) : undefined;

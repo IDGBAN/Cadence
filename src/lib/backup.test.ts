@@ -91,10 +91,10 @@ describe('JSON backups', () => {
   it.each([
     ['', /empty/],
     ['   ', /empty/],
-    ['{not json', /isn’t valid JSON/],
-    ['[1,2,3]', /doesn’t contain Cadence data/],
-    ['"hello"', /doesn’t contain Cadence data/],
-    [JSON.stringify({ app: 'other-tracker', data: { habits: [] } }), /different app \(“other-tracker”\)/],
+    ['{not json', /isn't valid JSON/],
+    ['[1,2,3]', /doesn't contain Cadence data/],
+    ['"hello"', /doesn't contain Cadence data/],
+    [JSON.stringify({ app: 'other-tracker', data: { habits: [] } }), /different app \("other-tracker"\)/],
     [JSON.stringify({ app: 'habit' }), /missing its data section/],
     [JSON.stringify({ app: 'habit', data: { settings: {} } }), /no habits/],
     [JSON.stringify({ settings: {} }), /no habits/],
@@ -105,8 +105,8 @@ describe('JSON backups', () => {
     [JSON.stringify({ habits: [], categories: 'x' }), /categories in this file are damaged/],
     [JSON.stringify({ app: 'habit', version: 99, data: { habits: [] } }), /newer version/],
     [JSON.stringify({ version: 99, habits: [] }), /newer version/],
-    [JSON.stringify({ habits: [{ id: '__proto__' }], logs: { __proto__: {} } }), /Habit #1 .*can’t use/],
-    [JSON.stringify({ habits: [{ id: 'ok' }, { id: 'constructor' }] }), /Habit #2 .*can’t use/],
+    [JSON.stringify({ habits: [{ id: '__proto__' }], logs: { __proto__: {} } }), /Habit #1 .*can't use/],
+    [JSON.stringify({ habits: [{ id: 'ok' }, { id: 'constructor' }] }), /Habit #2 .*can't use/],
   ])('rejects invalid input %#', (text, message) => {
     expect(() => parseBackup(text)).toThrow(message);
   });

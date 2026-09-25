@@ -94,7 +94,7 @@ interface RunPoint {
 }
 
 function periodTick(start: DayKey, period: Habit['period']): string {
-  if (period === 'month') return `${MONTH_SHORT[Number(start.slice(5, 7)) - 1]} ’${start.slice(2, 4)}`;
+  if (period === 'month') return `${MONTH_SHORT[Number(start.slice(5, 7)) - 1]} '${start.slice(2, 4)}`;
   return formatMonthDay(start);
 }
 

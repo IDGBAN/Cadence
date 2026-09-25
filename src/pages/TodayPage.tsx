@@ -236,7 +236,7 @@ export default function TodayPage() {
             <EmptyState
               icon={<Sparkles />}
               title="Add your first habit"
-              description="Track a yes/no like “Take vitamin D”, an amount like “8 glasses of water”, time spent studying, a nightly sleep rating, or days without something."
+              description='Track a yes/no like "Take vitamin D", an amount like "8 glasses of water", time spent studying, a nightly sleep rating, or days without something.'
               action={
                 <div className="flex flex-col items-center gap-2">
                   <Button icon={<Plus aria-hidden />} onClick={() => openHabitEditor(null)}>
@@ -346,7 +346,7 @@ export default function TodayPage() {
                 onToggle={() => setBonusCollapsed((c) => !c)}
               >
                 <p className="px-1 text-xs text-fg-3">
-                  These aren’t due. Logging one is a bonus and won’t hurt your streak.
+                  These aren't due. Logging one is a bonus and won't hurt your streak.
                 </p>
                 {bonus.map((item) => (
                   <HabitCard

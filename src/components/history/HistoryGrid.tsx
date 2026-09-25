@@ -436,7 +436,7 @@ export function HistoryGrid({ model, view, today }: HistoryGridProps) {
                   className={cn('flex items-center justify-center px-0.5 py-2', future && 'opacity-50')}
                   title={
                     future
-                      ? `${formatDayShort(total.day)}: hasn’t happened yet`
+                      ? `${formatDayShort(total.day)}: hasn't happened yet`
                       : total.rate === null
                         ? `${formatDayShort(total.day)}: nothing scheduled`
                         : `${formatDayShort(total.day)}: ${total.completed} of ${total.total} done`

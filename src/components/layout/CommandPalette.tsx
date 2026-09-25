@@ -521,7 +521,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
                   <SearchX aria-hidden="true" className="size-5 text-fg-3" />
                 </span>
                 <p className="font-medium text-fg">
-                  No results for “<span className="break-all">{query.trim()}</span>”
+                  No results for "<span className="break-all">{query.trim()}</span>"
                 </p>
                 <p className="mt-1 text-sm text-fg-3">Try a different word, or create a new habit.</p>
                 <Button

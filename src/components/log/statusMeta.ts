@@ -19,15 +19,15 @@ export function statusMeta(status: DayStatus, habit: HabitShape): StatusMeta {
 
   switch (status) {
     case 'done':
-      if (quit) return { label: 'Clean', tone: 'success', hint: 'No relapse on this day.' };
+      if (quit) return { label: 'Clean', tone: 'success', hint: 'No slip on this day.' };
       if (periodic)
         return { label: 'Counted', tone: 'success', hint: `Counts toward this ${periodWord}'s goal.` };
       return { label: 'Done', tone: 'success', hint: 'Goal met.' };
     case 'partial':
       return { label: 'Partial', tone: 'warning', hint: 'Logged, but short of the goal.' };
     case 'missed':
-      if (quit) return { label: 'Relapse', tone: 'danger', hint: 'A relapse was logged this day.' };
-      return { label: 'Missed', tone: 'danger', hint: 'Due this day, but the goal wasn’t met.' };
+      if (quit) return { label: 'Slip', tone: 'danger', hint: 'A slip was logged this day.' };
+      return { label: 'Missed', tone: 'danger', hint: "Due this day, but the goal wasn't met." };
     case 'skipped':
       return { label: 'Skipped', tone: 'neutral', hint: "Doesn't count against your streak." };
     case 'pending':
@@ -35,7 +35,7 @@ export function statusMeta(status: DayStatus, habit: HabitShape): StatusMeta {
     case 'notDue':
       return { label: 'Not scheduled', tone: 'neutral', hint: 'Not scheduled for this day.' };
     case 'future':
-      return { label: 'Upcoming', tone: 'neutral', hint: 'This day hasn’t happened yet.' };
+      return { label: 'Upcoming', tone: 'neutral', hint: "This day hasn't happened yet." };
     case 'beforeStart':
       return { label: 'Before start', tone: 'neutral', hint: 'Before you started tracking this habit.' };
     case 'logged':

@@ -65,8 +65,8 @@ export function undoAction(): NonNullable<ToastInput['action']> {
 
 function rejectFuture(day: DayKey): void {
   toast({
-    title: 'Can’t log the future',
-    description: `${formatDayShort(day)} hasn’t happened yet.`,
+    title: "Can't log the future",
+    description: `${formatDayShort(day)} hasn't happened yet.`,
     tone: 'danger',
     icon: '⏳',
   });
@@ -193,7 +193,7 @@ export function setSkippedWithFeedback(habitId: string, day: DayKey, skipped: bo
   toast({
     title: skipped ? 'Day skipped' : 'Skip removed',
     description: skipped
-      ? `${habit.name} · ${formatDayShort(day)} won’t count for or against your streak.`
+      ? `${habit.name} · ${formatDayShort(day)} won't count for or against your streak.`
       : `${habit.name} · ${formatDayShort(day)} counts again.`,
     icon: skipped ? '⏭️' : '↩️',
     action: undoAction(),
@@ -216,7 +216,7 @@ export function skipManyWithFeedback(habitIds: readonly string[], day: DayKey, r
   haptic(8);
   toast({
     title: `${pluralize(count, 'habit')} skipped${reason?.trim() ? ` · ${reason.trim()}` : ''}`,
-    description: `${formatDayShort(day)} won’t count for or against those streaks.`,
+    description: `${formatDayShort(day)} won't count for or against those streaks.`,
     icon: '⏭️',
     action: undoAction(),
   });

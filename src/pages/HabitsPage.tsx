@@ -204,7 +204,7 @@ export default function HabitsPage() {
             <EmptyState
               icon={<Search />}
               title="No habits match"
-              description={`Nothing for “${deferredQuery.trim()}”. Try another word or add it as a new habit.`}
+              description={`Nothing for "${deferredQuery.trim()}". Try another word or add it as a new habit.`}
               action={
                 <>
                   <Button variant="secondary" onClick={() => setQuery('')}>
@@ -253,7 +253,7 @@ export default function HabitsPage() {
         <EmptyState
           icon={<Search />}
           title="No archived habits match"
-          description={`Nothing archived matches “${deferredQuery.trim()}”.`}
+          description={`Nothing archived matches "${deferredQuery.trim()}".`}
           action={
             <Button variant="secondary" onClick={() => setQuery('')}>
               Clear search

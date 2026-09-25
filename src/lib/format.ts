@@ -213,15 +213,15 @@ export function typeLabel(type: HabitType): string {
 
 const TYPE_DESCRIPTIONS: Record<HabitType, string> = {
   check:
-    'Yes or no. One tap marks it done. Good for supplements, a daily lesson or anything you either did or didn’t.',
+    "Yes or no. One tap marks it done. Good for supplements, a daily lesson or anything you either did or didn't.",
   quantity:
-    'Count toward a number, like glasses of water or meals. Log with + and −. Set a daily, weekly or monthly target, or cap it with an “at most” limit.',
+    'Count toward a number, like glasses of water or meals. Log with + and −. Set a daily, weekly or monthly target, or cap it with an "at most" limit.',
   duration:
     'Track time spent, like studying or reading. Type in hours and minutes or use the timer. Goals can be daily, weekly or monthly.',
   rating:
     'Score something on a scale, like sleep quality out of 10. Pick the score that counts as a good day and keep an eye on your average.',
   quit:
-    'For something you’re trying to stop. A counter tracks your time clean and resets when you log a relapse. Your best run is always saved.',
+    "For something you're trying to stop. A counter tracks your time clean and resets when you log a slip. Your best run is always saved.",
 };
 
 export function typeDescription(type: HabitType): string {
@@ -269,15 +269,15 @@ const CHEERS: Record<CheerKind, readonly string[]> = {
     'Done and dusted.',
     'Small wins add up.',
     'Checked off.',
-    'That’s how habits get built.',
-    'Good, that one’s done.',
+    "That's how habits get built.",
+    "Good, that one's done.",
     'One step closer to automatic.',
     'Logged. Keep it going.',
-    'You showed up. That’s most of it.',
+    "You showed up. That's most of it.",
     'Another one done.',
   ],
   perfect: [
-    'Perfect day. Everything’s checked off.',
+    "Perfect day. Everything's checked off.",
     'Clean sweep. Every habit done today.',
     '100% today. Enjoy that.',
     'Nothing left on the list.',
@@ -293,22 +293,22 @@ const CHEERS: Record<CheerKind, readonly string[]> = {
     'Look at that run.',
     'Still going strong.',
     'Another link in the chain.',
-    'Don’t break the chain now.',
+    "Don't break the chain now.",
     'Proof you can stick with it.',
   ],
   relapse: [
-    'A slip isn’t the end. The counter restarts, and so can you.',
+    "A slip isn't the end. The counter restarts, and so can you.",
     'Go easy on yourself. Every attempt teaches you something.',
-    'One setback doesn’t erase the progress you made.',
-    'Reset and go again. You’ve done it before.',
+    "One setback doesn't erase the progress you made.",
+    "Reset and go again. You've done it before.",
     'The next run starts now.',
-    'One slip doesn’t undo everything.',
+    "One slip doesn't undo everything.",
     'Logging it honestly counts for something.',
     'Your best run is still saved. Start a new one.',
   ],
   empty: [
-    'What’s one small thing you can do today?',
-    'Nothing logged yet. The day’s still open.',
+    "What's one small thing you can do today?",
+    "Nothing logged yet. The day's still open.",
     'Every streak starts with day one.',
     'Pick one habit and get started.',
     'Clean slate today.',
@@ -322,9 +322,9 @@ const CHEERS: Record<CheerKind, readonly string[]> = {
     'Some is way better than none.',
     'Nice start. The rest is doable.',
     'Every bit counts.',
-    'On your way. Don’t stop now.',
+    "On your way. Don't stop now.",
     'Logged. Getting closer.',
-    'It’s coming along.',
+    "It's coming along.",
   ],
 };
 

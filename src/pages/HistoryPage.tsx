@@ -143,7 +143,7 @@ export default function HistoryPage() {
           <EmptyState
             icon="🗄️"
             title="Every habit is archived"
-            description="Turn on “Archived” above to see the history of your archived habits."
+            description='Turn on "Archived" above to see the history of your archived habits.'
             action={
               <Button variant="secondary" onClick={() => setShowArchived(true)}>
                 Show archived

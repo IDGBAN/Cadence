@@ -27,7 +27,7 @@ export function exportBackupWithToast(): void {
       icon: '💾',
     });
   } catch (err) {
-    failure('Couldn’t save the backup', err);
+    failure("Couldn't save the backup", err);
   }
 }
 
@@ -36,7 +36,7 @@ export function exportCsvWithToast(): void {
     downloadCsv(getData());
     toast({ title: 'CSV exported', description: 'One row per logged value, ready for a spreadsheet.', tone: 'success', icon: '📊' });
   } catch (err) {
-    failure('Couldn’t export the CSV', err);
+    failure("Couldn't export the CSV", err);
   }
 }
 
@@ -51,7 +51,7 @@ export function loadDemoData(): boolean {
     actions().replaceData({ ...demo, settings: { ...settings } });
     return true;
   } catch (err) {
-    failure('Couldn’t load the demo', err);
+    failure("Couldn't load the demo", err);
     return false;
   }
 }

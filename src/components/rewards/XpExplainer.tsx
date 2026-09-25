@@ -56,7 +56,7 @@ export function XpExplainer() {
           },
           {
             label: 'Bonus day',
-            detail: 'Doing a habit on a day it wasn’t scheduled.',
+            detail: "Doing a habit on a day it wasn't scheduled.",
             amount: xp(XP_RULES.bonusDay),
           },
           {
@@ -101,7 +101,7 @@ export function XpExplainer() {
         rules: [
           {
             label: 'Each clean day',
-            detail: 'Every day without a relapse, in every run.',
+            detail: 'Every day without a slip, in every run.',
             amount: xp(XP_RULES.quitCleanDay),
           },
           ...QUIT_MILESTONE_XP.map(([days, amount]) => ({

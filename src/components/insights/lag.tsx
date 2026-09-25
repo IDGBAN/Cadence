@@ -9,6 +9,6 @@ export const LAG_OPTIONS: Array<{ value: Lag; label: string; icon: ReactNode; ti
 
 export function lagHint(lag: Lag): string {
   return lag === 1
-    ? 'Each habit is compared with the next day, like “sleep tonight, focus tomorrow”. Direction matters here, so the grid isn’t symmetric.'
+    ? `Each habit is compared with the next day, like "sleep tonight, focus tomorrow". Direction matters here, so the grid isn't symmetric.`
     : 'Both habits are compared on the same day, so the grid is symmetric.';
 }

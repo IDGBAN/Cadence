@@ -108,7 +108,7 @@ export function DataSection() {
     const stillFailing = useStore.getState().storageError?.kind === 'write';
     toast(
       stillFailing
-        ? { title: 'Still can’t save', description: 'Keep this tab open and export a backup.', tone: 'danger', icon: '⚠️' }
+        ? { title: "Still can't save", description: 'Keep this tab open and export a backup.', tone: 'danger', icon: '⚠️' }
         : { title: 'Saved', description: 'Everything is stored in this browser again.', tone: 'success', icon: '💾' },
     );
   }, []);
@@ -133,7 +133,7 @@ export function DataSection() {
       });
     } catch (error) {
       toast({
-        title: 'That file can’t be imported',
+        title: "That file can't be imported",
         description: error instanceof Error ? error.message : 'The file could not be read.',
         tone: 'danger',
         icon: '⚠️',
@@ -167,7 +167,7 @@ export function DataSection() {
       description:
         `This replaces everything in Cadence with ${DEMO_DAYS} days of sample history, including streaks, relapses, ` +
         'notes and correlations. Export a backup first if you want to keep your own logs. ' +
-        'You can remove the demo later with “Delete all data”.',
+        'You can remove the demo later with "Delete all data".',
       confirmLabel: 'Load demo data',
       cancelLabel: 'Cancel',
       icon: '🧪',
@@ -197,7 +197,7 @@ export function DataSection() {
       title: 'Delete all data?',
       description:
         'Every habit, log, note, streak and achievement in this browser is permanently deleted, and you go back to ' +
-        'the welcome screen. This can’t be undone, so export a backup first if you might want it back.',
+        "the welcome screen. This can't be undone, so export a backup first if you might want it back.",
       confirmLabel: 'Delete everything',
       cancelLabel: 'Keep my data',
       tone: 'danger',
@@ -225,7 +225,7 @@ export function DataSection() {
           >
             <TriangleAlert className="size-5 shrink-0 text-danger" aria-hidden="true" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-fg">Cadence can’t save to this browser</p>
+              <p className="text-sm font-semibold text-fg">Cadence can't save to this browser</p>
               <p className="mt-0.5 text-xs leading-relaxed text-fg-3">
                 Your recent changes are only in this tab. Export a backup now, then try saving again.
               </p>
@@ -270,7 +270,7 @@ export function DataSection() {
 
         <SettingRow
           label="Import a backup"
-          description="Replaces everything in the app. You’ll see a preview first."
+          description="Replaces everything in the app. You'll see a preview first."
           control={
             <>
               <input
@@ -363,7 +363,7 @@ export function DataSection() {
                   ? storage.quota
                     ? `used of about ${formatBytes(storage.quota)} available`
                     : 'used by Cadence in this browser'
-                  : 'Your browser doesn’t share storage numbers.'}
+                  : "Your browser doesn't share storage numbers."}
               </p>
             </div>
             <div className="rounded-xl border border-line bg-surface-2 p-3.5">
@@ -380,7 +380,7 @@ export function DataSection() {
               </p>
               <p className="mt-1 text-[12px] leading-snug text-fg-3">
                 {storage.persisted === true
-                  ? 'The browser won’t evict your habits to free up space.'
+                  ? "The browser won't evict your habits to free up space."
                   : 'Clearing site data or a browser cleanup would remove your habits, so keep a backup.'}
               </p>
             </div>
