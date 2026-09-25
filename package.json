@@ -5,7 +5,7 @@
   "description": "A local-first habit tracker with streaks, XP and correlations between habits.",
   "type": "module",
   "engines": {
-    "node": ">=20.19"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "dev": "vite",

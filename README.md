@@ -19,7 +19,7 @@ I wanted something that handles the messy parts of tracking: a rating out of 10 
 
 ## Running it
 
-You need [Node.js](https://nodejs.org) 20.19 or newer.
+You need [Node.js](https://nodejs.org) 20.19+ or 22.12+ (the tests need 22.12+).
 
 ```bash
 npm install

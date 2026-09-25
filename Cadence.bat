@@ -5,7 +5,8 @@ title Cadence
 
 where node >nul 2>nul
 if errorlevel 1 goto nonode
-node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>20||(a===20&&b>=19)?0:1)"
+rem vite needs 20.19+ on the 20.x line, or 22.12+
+node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit((a===20&&b>=19)||(a===22&&b>=12)||a>22?0:1)"
 if errorlevel 1 goto oldnode
 
 if not exist "node_modules\vite" (
@@ -34,7 +35,7 @@ echo Node.js isn't installed. Get it from https://nodejs.org and try again.
 goto end
 
 :oldnode
-for /f %%v in ('node -v') do echo Cadence needs Node.js 20.19 or newer, but this PC has %%v.
+for /f %%v in ('node -v') do echo Cadence needs Node.js 20.19+ or 22.12+, but this PC has %%v.
 echo Install the current LTS from https://nodejs.org, delete the node_modules folder, and try again.
 goto end
 
