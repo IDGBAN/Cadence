@@ -3,7 +3,7 @@ import {
   activeHabits, completionRate, dailyValueSeries, dayCells, habitSummary, isScheduledOn, quitStats, streakInfo,
   type EngineCtx,
 } from './habitMath';
-import { addDays, weekday, WEEKDAY_LONG, WEEKDAY_SHORT } from './dates';
+import { addDays, diffDays, logicalDayOf, weekday, WEEKDAY_LONG, WEEKDAY_SHORT } from './dates';
 import { formatHours, formatMinutes, formatNumber, formatPercent, formatValue, pluralize } from './format';
 
 export type Strength = 'none' | 'weak' | 'moderate' | 'strong';
@@ -41,6 +41,8 @@ const LOWER_IS_BETTER_RE =
   /\b(stress|stressed|anxiety|anxious|pain|craving|cravings|fatigue|tired|tiredness|headaches?|soreness|irritability|procrastination)\b/i;
 
 const VARIANCE_EPS = 1e-12;
+const WEEKDAY_MIN_N = 4; // days per weekday before it can be compared
+const WEEKDAY_MIN_Z = 1.96; // about p < 0.05, two-sided
 
 function pearsonCore(
   xs: ArrayLike<number>, xOffset: number, ys: ArrayLike<number>, yOffset: number, length: number,
@@ -177,6 +179,7 @@ export function confidenceOf(n: number, p: number): Confidence {
 interface Series {
   habit: Habit;
   values: Float64Array; // one per day, NaN = unknown
+  inferred: Uint8Array; // 1 where the value was filled in without an entry, like a 0 for an unlogged check
   firstWeekday: number;
   count: number; // known values
   nearConstant: boolean;
@@ -242,29 +245,87 @@ function buildSeries(habit: Habit, data: AppData, ctx: EngineCtx, window: Window
 
 function computeSeries(habit: Habit, data: AppData, ctx: EngineCtx, window: Window): Series {
   const raw = dailyValueSeries(habit, data, window.start, window.end, ctx);
+  const logs = data.logs ? data.logs[habit.id] : undefined;
   const values = new Float64Array(raw.length);
+  const inferred = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    const v = raw[i].value;
+    values[i] = v === null || !Number.isFinite(v) ? Number.NaN : v;
+    if (v !== null && !(logs && logs[raw[i].day])) inferred[i] = 1;
+  }
+  return seriesFrom(habit, values, inferred, weekday(window.start));
+}
+
+function seriesFrom(habit: Habit, values: Float64Array, inferred: Uint8Array, firstWeekday: number): Series {
   const frequency = new Map<number, number>();
   let count = 0;
   let modeCount = 0;
-  for (let i = 0; i < raw.length; i++) {
-    const v = raw[i].value;
-    if (v === null || !Number.isFinite(v)) {
-      values[i] = Number.NaN;
-      continue;
-    }
-    values[i] = v;
+  for (const v of values) {
+    if (Number.isNaN(v)) continue;
     count++;
     const f = (frequency.get(v) ?? 0) + 1;
     frequency.set(v, f);
     if (f > modeCount) modeCount = f;
   }
-  return {
-    habit,
-    values,
-    firstWeekday: weekday(window.start),
-    count,
-    nearConstant: count === 0 || modeCount / count >= NEAR_CONSTANT_SHARE,
-  };
+  return { habit, values, inferred, firstWeekday, count, nearConstant: count === 0 || modeCount / count >= NEAR_CONSTANT_SHARE };
+}
+
+// a day with nothing logged at all usually means the app wasn't opened, not that every habit was skipped.
+// the zeros filled in on those days line every goal habit up together and fake links between them,
+// so pairwise analysis treats them as unknown
+interface BlankDaysEntry {
+  logs: AppData['logs'];
+  relapses: AppData['relapses'];
+  dayNotes: AppData['dayNotes'];
+  dayStartHour: number;
+  start: DayKey;
+  end: DayKey;
+  mask: Uint8Array;
+}
+
+let blankDaysCache: BlankDaysEntry | null = null;
+
+function blankDays(data: AppData, ctx: EngineCtx, window: Window): Uint8Array {
+  const { logs, relapses, dayNotes } = data;
+  const c = blankDaysCache;
+  if (
+    c && c.logs === logs && c.relapses === relapses && c.dayNotes === dayNotes
+    && c.dayStartHour === ctx.dayStartHour && c.start === window.start && c.end === window.end
+  ) {
+    return c.mask;
+  }
+  const active = new Set<DayKey>();
+  for (const habitId in logs) {
+    for (const day in logs[habitId]) if (day >= window.start && day <= window.end) active.add(day);
+  }
+  for (const relapse of relapses ?? []) active.add(logicalDayOf(relapse.at, ctx.dayStartHour));
+  for (const day in dayNotes) active.add(day);
+  const mask = new Uint8Array(Math.max(0, diffDays(window.start, window.end) + 1));
+  for (let i = 0, day = window.start; i < mask.length; i++, day = addDays(day, 1)) {
+    if (!active.has(day)) mask[i] = 1;
+  }
+  blankDaysCache = { logs, relapses, dayNotes, dayStartHour: ctx.dayStartHour, start: window.start, end: window.end, mask };
+  return mask;
+}
+
+const pairSeriesMemo = new WeakMap<Series, { blank: Uint8Array; value: Series }>();
+
+// the series used for anything that pairs two habits
+function pairSeries(habit: Habit, data: AppData, ctx: EngineCtx, window: Window): Series {
+  const series = buildSeries(habit, data, ctx, window);
+  const blank = blankDays(data, ctx, window);
+  const hit = pairSeriesMemo.get(series);
+  if (hit && hit.blank === blank) return hit.value;
+  let values: Float64Array | null = null;
+  for (let i = 0; i < series.values.length; i++) {
+    if (blank[i] && series.inferred[i] && !Number.isNaN(series.values[i])) {
+      values ??= series.values.slice();
+      values[i] = Number.NaN;
+    }
+  }
+  const value = values ? seriesFrom(habit, values, series.inferred, series.firstWeekday) : series;
+  pairSeriesMemo.set(series, { blank, value });
+  return value;
 }
 
 // removes weekday means and a ±14 day moving average, so weekly rhythms and slow drifts
@@ -345,9 +406,35 @@ export function correlate(
   if (lag === 0 && driver.id === outcome.id) return null;
   const window = analysisWindow(ctx, opts.start, opts.end);
   if (!window) return null;
-  const x = buildSeries(driver, data, ctx, window);
-  const y = driver.id === outcome.id ? x : buildSeries(outcome, data, ctx, window);
+  const x = pairSeries(driver, data, ctx, window);
+  const y = driver.id === outcome.id ? x : pairSeries(outcome, data, ctx, window);
   return correlateSeries(x, y, lag, minNOf(opts.minN));
+}
+
+export interface PairPoint {
+  // the driver's day. the outcome is `lag` days later
+  day: DayKey;
+  x: number;
+  y: number;
+}
+
+/** The exact days correlate() pairs up, so a chart of them always shows the reported n. */
+export function pairedPoints(
+  data: AppData, ctx: EngineCtx, driver: Habit, outcome: Habit,
+  opts: { start: DayKey; end: DayKey; lag?: 0 | 1 },
+): PairPoint[] {
+  const lag = opts.lag === 1 ? 1 : 0;
+  const window = analysisWindow(ctx, opts.start, opts.end);
+  if (!window) return [];
+  const x = pairSeries(driver, data, ctx, window).values;
+  const y = driver.id === outcome.id ? x : pairSeries(outcome, data, ctx, window).values;
+  const out: PairPoint[] = [];
+  let day = window.start;
+  for (let i = 0; i + lag < x.length; i++, day = addDays(day, 1)) {
+    if (Number.isNaN(x[i]) || Number.isNaN(y[i + lag])) continue;
+    out.push({ day, x: x[i], y: y[i + lag] });
+  }
+  return out;
 }
 
 export interface CorrelationMatrix {
@@ -384,7 +471,7 @@ export function correlationMatrix(
   if (!window || size === 0) return { habits, matrix };
 
   const minN = minNOf(opts.minN);
-  const series = habits.map((h) => buildSeries(h, data, ctx, window));
+  const series = habits.map((h) => pairSeries(h, data, ctx, window));
   for (let i = 0; i < size; i++) {
     for (let j = lag === 0 ? i + 1 : 0; j < size; j++) {
       if (i === j) continue;
@@ -517,8 +604,8 @@ export function compareOutcome(
   if (lag === 0 && driver.id === outcome.id) return null;
   const window = analysisWindow(ctx, opts.start, opts.end);
   if (!window) return null;
-  const x = buildSeries(driver, data, ctx, window);
-  const y = driver.id === outcome.id ? x : buildSeries(outcome, data, ctx, window);
+  const x = pairSeries(driver, data, ctx, window);
+  const y = driver.id === outcome.id ? x : pairSeries(outcome, data, ctx, window);
   return compareSeries(x, y, lag);
 }
 
@@ -537,7 +624,7 @@ export interface Insight {
   stats?: Array<{ label: string; value: string }>;
 }
 
-function lowerIsBetter(habit: Habit): boolean {
+export function lowerIsBetter(habit: Habit): boolean {
   if (habit.type === 'quit' || habit.type === 'check') return false;
   if (habit.kind === 'metric') return habit.direction === 'atMost' || LOWER_IS_BETTER_RE.test(habit.name);
   return habit.direction === 'atMost';
@@ -829,7 +916,7 @@ function survivesAdjustment(x: Series, y: Series, result: CorrelationResult): bo
 
 function correlationInsights(data: AppData, ctx: EngineCtx, habits: Habit[], focus: Habit | undefined, window: Window): Insight[] {
   const series = habits
-    .map((h) => buildSeries(h, data, ctx, window))
+    .map((h) => pairSeries(h, data, ctx, window))
     .filter((s) => s.count >= DEFAULT_MIN_N);
   const involvesFocus = (x: Series, y: Series) => !focus || x.habit.id === focus.id || y.habit.id === focus.id;
 
@@ -907,6 +994,13 @@ function correlationInsights(data: AppData, ctx: EngineCtx, habits: Habit[], foc
   return kept.map((c) => c.insight);
 }
 
+// two-proportion z-test, so a single missed Tuesday can't become "Tuesdays are your weak spot"
+function ratesDiffer(a: { value: number; n: number }, b: { value: number; n: number }): boolean {
+  const pooled = (a.value * a.n + b.value * b.n) / (a.n + b.n);
+  const se = Math.sqrt(pooled * (1 - pooled) * (1 / a.n + 1 / b.n));
+  return se > 0 && Math.abs(a.value - b.value) / se >= WEEKDAY_MIN_Z;
+}
+
 function weekdayInsight(habit: Habit, data: AppData, ctx: EngineCtx, start: DayKey, end: DayKey): Insight | null {
   if (habit.type === 'quit') return null;
   const useRate = habit.kind !== 'metric';
@@ -915,7 +1009,7 @@ function weekdayInsight(habit: Habit, data: AppData, ctx: EngineCtx, start: DayK
   let total = 0;
   for (const stat of profile) {
     const value = useRate ? stat.rate : stat.average;
-    if (value === null || stat.n < 3) continue;
+    if (value === null || stat.n < WEEKDAY_MIN_N) continue;
     rows.push({ weekday: stat.weekday, value, n: stat.n });
     total += stat.n;
   }
@@ -934,7 +1028,7 @@ function weekdayInsight(habit: Habit, data: AppData, ctx: EngineCtx, start: DayK
 
   let normalized: number;
   if (useRate) {
-    if (spread < 0.25) return null;
+    if (spread < 0.25 || !ratesDiffer(best, worst)) return null;
     normalized = spread;
   } else if (habit.type === 'rating') {
     const scale = Math.max(1, habit.ratingMax);
@@ -956,8 +1050,10 @@ function weekdayInsight(habit: Habit, data: AppData, ctx: EngineCtx, start: DayK
     const avg = (list: typeof rows) => list.reduce((s, r) => s + r.value, 0) / list.length;
     const weekendSlump = weekend.length === 2 && weekdays.length >= 3 && (worst.weekday === 0 || worst.weekday === 6)
       && avg(weekdays) - avg(weekend) >= 0.15;
-    if (weekendSlump) title = `${habit.name} drops off on weekends`;
-    else if (best.value >= 0.5) title = `Best day for ${habit.name}: ${bestDay}`;
+    // a weekly or monthly goal never asked for any particular day, so nothing "slips"
+    const periodic = !isDailyEvaluated(habit);
+    if (weekendSlump && !periodic) title = `${habit.name} drops off on weekends`;
+    else if (best.value >= 0.5 || periodic) title = `Best day for ${habit.name}: ${bestDay}`;
     else title = `${habit.name} slips on ${worstDay}s`;
     const verb = habit.type === 'check' ? `check off ${habit.name}` : isDailyEvaluated(habit) ? `hit your ${habit.name} goal` : `log ${habit.name}`;
     detail = `You ${verb} on ${formatPercent(best.value)} of ${bestDay}s but only ${formatPercent(worst.value)} of ${worstDay}s.`;
@@ -1063,9 +1159,14 @@ function trendInsight(habit: Habit, data: AppData, ctx: EngineCtx): Insight | nu
 
 type SummaryOf = () => HabitSummary;
 
+// totals of something you're cutting down on aren't milestones
+function hasValueMilestones(habit: Habit): boolean {
+  return (habit.type === 'duration' || habit.type === 'quantity') && !lowerIsBetter(habit);
+}
+
 // keep in sync with milestoneInsights
 function milestonesUseSummary(habit: Habit): boolean {
-  return habit.type === 'duration' || habit.type === 'quantity' || (habit.type === 'check' && habit.kind !== 'metric');
+  return hasValueMilestones(habit) || (habit.type === 'check' && habit.kind !== 'metric');
 }
 
 function streakInsight(habit: Habit, data: AppData, ctx: EngineCtx, summaryOf: SummaryOf): Insight | null {
@@ -1149,7 +1250,9 @@ function consistencyInsights(data: AppData, ctx: EngineCtx, habits: Habit[]): In
       ? ` Try doing it right after ${best.habit.name}, which you rarely miss.`
       : worst.habit.type === 'check'
         ? ' A set time of day or a visible reminder might help.'
-        : ' A slightly smaller target might be easier to hit.';
+        : isAtMostGoal(worst.habit)
+          ? ' A slightly higher limit might be easier to stick to.'
+          : ' A slightly smaller target might be easier to hit.';
     out.push({
       id: `consistency:worst:${worst.habit.id}`,
       kind: 'consistency',
@@ -1222,7 +1325,7 @@ function milestoneInsights(habit: Habit, data: AppData, ctx: EngineCtx, summaryO
 
   const recentStart = addDays(ctx.today, -6);
   const recent = dailyValueSeries(habit, data, recentStart, ctx.today, ctx);
-  if (habit.type === 'duration' || habit.type === 'quantity') {
+  if (hasValueMilestones(habit)) {
     const summary = summaryOf();
     const total = summary.totalValue;
     let recentSum = 0;

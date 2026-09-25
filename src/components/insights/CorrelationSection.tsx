@@ -335,12 +335,11 @@ export interface CorrelationSectionProps {
 }
 
 export function CorrelationSection({ correlations, lag, onSelectPair }: CorrelationSectionProps) {
-  const { habits, matrix, pairs, tested, possible, minN } = correlations;
+  const { habits, matrix, pairs, strongest, tested, possible, minN } = correlations;
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [chosenView, setChosenView] = useState<MatrixView | null>(null);
   const view: MatrixView = chosenView ?? (isPhone ? 'pairs' : 'grid');
 
-  const strongest = pairs[0] ?? null;
   const enoughHabits = habits.length >= 2;
 
   const subtitle = !enoughHabits

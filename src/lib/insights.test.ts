@@ -842,3 +842,67 @@ describe('generateInsights', () => {
     expect(generateInsights(makeData([a, b]), ctx)).toEqual([]);
   });
 });
+
+describe('days with nothing logged', () => {
+  // 60 days, both habits done every day except days the app wasn't opened at all
+  const START = addDays(YESTERDAY, -59);
+  const blank = new Set([3, 9, 17, 22, 31, 40, 44, 52].map((i) => addDays(START, i)));
+  const floss = habit({ type: 'check', startDate: START });
+  const gym = habit({ type: 'check', startDate: START });
+  const doneExceptBlank = () => {
+    const out: Record<DayKey, LogEntry> = {};
+    for (let i = 0; i < 60; i++) {
+      const day = addDays(START, i);
+      if (!blank.has(day)) out[day] = entry(1);
+    }
+    return out;
+  };
+
+  it('are not read as both habits being skipped together', () => {
+    const data = makeData([floss, gym], { [floss.id]: doneExceptBlank(), [gym.id]: doneExceptBlank() });
+    expect(correlate(data, ctx, floss, gym, { start: START, end: YESTERDAY })).toBeNull();
+  });
+
+  it('still count as misses when something else was logged that day', () => {
+    const journal = habit({ type: 'quantity', kind: 'metric' });
+    const journalLogs: Record<DayKey, LogEntry> = {};
+    for (const day of blank) journalLogs[day] = entry(1);
+    const data = makeData([floss, gym, journal], {
+      [floss.id]: doneExceptBlank(),
+      [gym.id]: doneExceptBlank(),
+      [journal.id]: journalLogs,
+    });
+    const result = correlate(data, ctx, floss, gym, { start: START, end: YESTERDAY });
+    expect(result?.r).toBeCloseTo(1, 6);
+    expect(result?.n).toBe(60);
+  });
+});
+
+describe('noise guards', () => {
+  it('ignores a single missed weekday', () => {
+    const start = addDays(YESTERDAY, -28);
+    const floss = habit({ type: 'check', startDate: start });
+    const logs: Record<DayKey, LogEntry> = {};
+    let skippedOne = false;
+    for (let i = 0; i <= 28; i++) {
+      const day = addDays(start, i);
+      if (!skippedOne && weekday(day) === 2) {
+        skippedOne = true;
+        continue;
+      }
+      logs[day] = entry(1);
+    }
+    const insights = generateInsights(makeData([floss], { [floss.id]: logs }), ctx, { start });
+    expect(insights.filter((i) => i.kind === 'weekday')).toEqual([]);
+  });
+
+  it('never celebrates the total of a limit', () => {
+    const start = addDays(TODAY, -50);
+    const coffee = habit({ type: 'quantity', direction: 'atMost', target: 2, unit: 'cups', startDate: start });
+    const water = habit({ type: 'quantity', target: 2, unit: 'glasses', startDate: start });
+    const twoADay = logDays(start, new Array(51).fill(2));
+    const data = makeData([coffee, water], { [coffee.id]: twoADay, [water.id]: twoADay });
+    const milestones = generateInsights(data, ctx).filter((i) => i.kind === 'milestone');
+    expect(milestones.map((i) => i.habitIds[0])).toEqual([water.id]);
+  });
+});

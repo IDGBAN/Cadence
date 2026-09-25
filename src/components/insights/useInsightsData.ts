@@ -5,15 +5,15 @@ import {
   completionRate, dailyValueSeries, habitSummary, overallCompletionSeries,
 } from '@/lib/habitMath';
 import {
-  correlationMatrix, generateInsights, habitTrend, weekdayProfile,
-  type CorrelationResult, type Insight, type WeekdayStat,
+  correlationMatrix, generateInsights, habitTrend, lowerIsBetter, weekdayProfile,
+  type Confidence, type CorrelationResult, type Insight, type WeekdayStat,
 } from '@/lib/insights';
 import { addDays, weekday } from '@/lib/dates';
-import { useActiveHabits, useCategories, useData, useEngineCtx, useHabitSummaries } from '@/store/hooks';
+import { useActiveHabits, useAnalysisData, useCategories, useEngineCtx, useHabitSummaries, useQuitCtx } from '@/store/hooks';
 import { meanOf, movingAverage, type Lag, type RangeKey, type ResolvedRange, resolveRange } from './insightsData';
 
 export function useResolvedRange(key: RangeKey): ResolvedRange {
-  const data = useData();
+  const data = useAnalysisData();
   const ctx = useEngineCtx();
   return useMemo(() => resolveRange(key, data, ctx), [key, data, ctx]);
 }
@@ -51,10 +51,12 @@ function aggregate(series: Array<{ rate: number | null; completed: number; total
 }
 
 export function useOverallStats(range: ResolvedRange): OverallStats {
-  const data = useData();
+  const data = useAnalysisData();
   const ctx = useEngineCtx();
   return useMemo(() => {
     const raw = overallCompletionSeries(data, range.start, range.end, ctx);
+    // today is still open, so its unfinished habits aren't misses yet (the same rule completion rates use)
+    const settled = raw.map((p) => (p.day === ctx.today && p.completed < p.total ? { ...p, total: p.completed } : p));
     const rates = raw.map((p) => p.rate);
     const smoothed = movingAverage(rates, 7);
     const points: OverallPoint[] = raw.map((p, i) => {
@@ -75,6 +77,7 @@ export function useOverallStats(range: ResolvedRange): OverallStats {
     let evaluatedDays = 0;
     for (const point of points) {
       if (point.total <= 0 || point.rate === null) continue;
+      if (point.day === ctx.today && point.completed < point.total) continue;
       evaluatedDays++;
       if (point.rate >= 1) perfectDays++;
       const wd = weekday(point.day);
@@ -93,7 +96,7 @@ export function useOverallStats(range: ResolvedRange): OverallStats {
     const previous = range.previous
       ? aggregate(overallCompletionSeries(data, range.previous.start, range.previous.end, ctx))
       : null;
-    const rate = aggregate(raw);
+    const rate = aggregate(settled);
     return {
       points,
       rate,
@@ -147,15 +150,16 @@ function signedRelative(change: number, base: number): string {
   return `${change > 0 ? '+' : MINUS}${pct}%`;
 }
 
-function lowerIsBetter(habit: Habit): boolean {
-  if (habit.type === 'quit' || habit.type === 'check') return false;
-  return habit.direction === 'atMost';
+// a half-logged amount (steps by 9am, a running timer) would drag averages down during the day
+function growsDuringDay(habit: Habit): boolean {
+  return habit.type === 'quantity' || habit.type === 'duration';
 }
 
 function halfAverage(habit: Habit, data: AppData, ctx: EngineCtx, start: DayKey, end: DayKey): { mean: number | null; n: number } {
   if (end < start) return { mean: null, n: 0 };
   const series = dailyValueSeries(habit, data, start, end, ctx);
-  const values = series.map((s) => s.value);
+  const skipToday = growsDuringDay(habit);
+  const values = series.map((s) => (skipToday && s.day === ctx.today ? null : s.value));
   const n = values.reduce<number>((acc, v) => (v === null ? acc : acc + 1), 0);
   return { mean: meanOf(values), n };
 }
@@ -194,7 +198,7 @@ function computeTrend(habit: Habit, data: AppData, ctx: EngineCtx): HabitTrend |
 }
 
 export function useHabitRows(range: ResolvedRange): HabitRow[] {
-  const data = useData();
+  const data = useAnalysisData();
   const ctx = useEngineCtx();
   const habits = useActiveHabits();
   // no ticking clock here, it would recompute every row each second
@@ -206,10 +210,12 @@ export function useHabitRows(range: ResolvedRange): HabitRow[] {
         const isMetric = habit.kind === 'metric';
         const rate = isMetric ? null : completionRate(habit, data, range.start, range.end, ctx);
         const series = dailyValueSeries(habit, data, range.start, range.end, ctx);
+        const skipToday = growsDuringDay(habit);
         let logged = 0;
         let total = 0;
         for (const point of series) {
           if (point.value === null || !Number.isFinite(point.value)) continue;
+          if (skipToday && point.day === ctx.today) continue;
           logged++;
           total += point.value;
         }
@@ -242,8 +248,19 @@ export interface InsightTotals {
   mostImproved: HabitRow | null;
 }
 
+const STREAK_UNIT_DAYS: Record<StreakInfo['unit'], number> = { day: 1, week: 7, month: 30.44 };
+
+function streakDays(streak: StreakInfo): number {
+  return streak.current * STREAK_UNIT_DAYS[streak.unit];
+}
+
+// time spent on a limit (screen time) or a track-only duration isn't focus
+function countsAsFocus(habit: Habit): boolean {
+  return habit.type === 'duration' && habit.kind !== 'metric' && habit.direction !== 'atMost';
+}
+
 export function useInsightTotals(range: ResolvedRange, rows: HabitRow[]): InsightTotals {
-  const data = useData();
+  const data = useAnalysisData();
   return useMemo(() => {
     // walk rows, not data.logs, so archived and deleted habits stay out of the totals
     const days = new Set<DayKey>();
@@ -252,21 +269,21 @@ export function useInsightTotals(range: ResolvedRange, rows: HabitRow[]): Insigh
     for (const row of rows) {
       const logs = data.logs[row.habit.id];
       if (!logs) continue;
-      const isDuration = row.habit.type === 'duration';
+      const isFocus = countsAsFocus(row.habit);
       for (const day in logs) {
         if (day < range.start || day > range.end) continue;
         const entry = logs[day];
         if (entry.skipped) continue;
         days.add(day);
         if (entry.value > 0) checkIns++;
-        if (isDuration && Number.isFinite(entry.value)) focusedMinutes += Math.max(0, entry.value);
+        if (isFocus && Number.isFinite(entry.value)) focusedMinutes += Math.max(0, entry.value);
       }
     }
 
     let bestStreak: { habit: Habit; streak: StreakInfo } | null = null;
     let mostImproved: HabitRow | null = null;
     for (const row of rows) {
-      if (!row.isMetric && row.streak.current > 0 && (!bestStreak || row.streak.current > bestStreak.streak.current)) {
+      if (!row.isMetric && row.streak.current > 0 && (!bestStreak || streakDays(row.streak) > streakDays(bestStreak.streak))) {
         bestStreak = { habit: row.habit, streak: row.streak };
       }
       const score = row.improvement?.score ?? 0;
@@ -287,8 +304,10 @@ export function useInsightTotals(range: ResolvedRange, rows: HabitRow[]): Insigh
 }
 
 export function useInsights(range: ResolvedRange): Insight[] {
-  const data = useData();
-  const ctx = useEngineCtx();
+  const data = useAnalysisData();
+  const hasQuit = useActiveHabits().some((habit) => habit.type === 'quit');
+  // the shared ctx's clock is frozen for the day, so a relapse logged this afternoon would be missed
+  const ctx = useQuitCtx(hasQuit, 0);
   return useMemo(
     () => generateInsights(data, ctx, { start: range.start, end: range.end }),
     [data, ctx, range],
@@ -306,6 +325,8 @@ export interface CorrelationData {
   // matrix[driver][outcome]
   matrix: Array<Array<CorrelationResult | null>>;
   pairs: CorrelationPair[];
+  // the top pair that isn't low confidence, so a noisy 10-day link can't headline the section
+  strongest: CorrelationPair | null;
   tested: number;
   possible: number;
   minN: number;
@@ -313,8 +334,10 @@ export interface CorrelationData {
 
 export const CORRELATION_MIN_N = 10;
 
+const CONFIDENCE_RANK: Record<Confidence, number> = { high: 2, medium: 1, low: 0 };
+
 export function useCorrelations(range: ResolvedRange, lag: Lag): CorrelationData {
-  const data = useData();
+  const data = useAnalysisData();
   const ctx = useEngineCtx();
   const habits = useActiveHabits();
   return useMemo(() => {
@@ -338,10 +361,21 @@ export function useCorrelations(range: ResolvedRange, lag: Lag): CorrelationData
         pairs.push({ driver: ordered[i], outcome: ordered[j], result });
       }
     }
-    pairs.sort((a, b) => Math.abs(b.result.r) - Math.abs(a.result.r));
+    pairs.sort((a, b) =>
+      CONFIDENCE_RANK[b.result.confidence] - CONFIDENCE_RANK[a.result.confidence]
+      || Math.abs(b.result.r) - Math.abs(a.result.r));
+    const strongest = pairs.length > 0 && pairs[0].result.confidence !== 'low' ? pairs[0] : null;
     const size = ordered.length;
     const possible = lag === 0 ? (size * (size - 1)) / 2 : size * (size - 1);
-    return { habits: ordered, matrix, pairs, tested: lag === 0 ? tested / 2 : tested, possible, minN: CORRELATION_MIN_N };
+    return {
+      habits: ordered,
+      matrix,
+      pairs,
+      strongest,
+      tested: lag === 0 ? tested / 2 : tested,
+      possible,
+      minN: CORRELATION_MIN_N,
+    };
   }, [data, ctx, range, lag, habits]);
 }
 
@@ -354,7 +388,7 @@ export interface WeekdayRow {
 }
 
 export function useWeekdayRows(range: ResolvedRange): WeekdayRow[] {
-  const data = useData();
+  const data = useAnalysisData();
   const ctx = useEngineCtx();
   const habits = useActiveHabits();
   return useMemo(

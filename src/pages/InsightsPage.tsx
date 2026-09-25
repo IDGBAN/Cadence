@@ -48,7 +48,7 @@ export default function InsightsPage() {
   const pair = usePairSelection(correlations.habits);
 
   const habitsById = new Map(habits.map((habit) => [habit.id, habit] as const));
-  const strongest = correlations.pairs[0];
+  const { strongest } = correlations;
   const suggested = strongest ? { driverId: strongest.driver.id, outcomeId: strongest.outcome.id } : null;
 
   return (

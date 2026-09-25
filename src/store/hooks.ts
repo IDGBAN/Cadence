@@ -4,7 +4,7 @@ import type { AppData, Category, DayKey, Habit, HabitSummary, LogEntry, Relapse,
 import type { DayOverview, DayOverviewItem, EngineCtx, QuitStats } from '@/lib/habitMath';
 import { dayOverview, habitSummary, quitStats } from '@/lib/habitMath';
 import { logicalToday } from '@/lib/dates';
-import { useStore } from './store';
+import { getData, useStore } from './store';
 
 type Listener = () => void;
 
@@ -87,6 +87,18 @@ const noopUnsubscribe = () => undefined;
 
 export function useData(): AppData {
   return useStore((s) => s.data);
+}
+
+/**
+ * Just the parts of AppData the engine reads (habits, logs, relapses, day notes), so heavy analytics
+ * don't start over for a theme change or a badge unlock. Settings come from the ctx instead.
+ */
+export function useAnalysisData(): AppData {
+  const habits = useStore((s) => s.data.habits);
+  const logs = useStore((s) => s.data.logs);
+  const relapses = useStore((s) => s.data.relapses);
+  const dayNotes = useStore((s) => s.data.dayNotes);
+  return useMemo(() => ({ ...getData(), habits, logs, relapses, dayNotes }), [habits, logs, relapses, dayNotes]);
 }
 
 export function useSettings(): Settings {
