@@ -15,7 +15,8 @@ import { NAV_ITEMS } from './nav';
 import { fuzzyMatch } from './fuzzy';
 import { isUpNextToday } from './upNext';
 import { isLightTheme, toggleLightDark } from './appearance';
-import { exportBackupWithToast, redoWithToast, undoWithToast } from './commands';
+import { exportBackupWithToast } from '@/lib/dataActions';
+import { redoWithToast, undoWithToast } from './commands';
 import { MOD_KEY, SHIFT_KEY } from './platform';
 import { openShortcuts } from './shellStore';
 

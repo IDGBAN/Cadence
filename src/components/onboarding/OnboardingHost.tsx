@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, FlaskConical, Lock, Rocket, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import type { Habit, ThemeName } from '@/types';
-import { generateDemoData } from '@/lib/demo';
+import { DEMO_DAYS, loadDemoData } from '@/lib/dataActions';
 import { confettiCelebration, playSound } from '@/lib/feedback';
 import { actions, getData, useStore } from '@/store/store';
 import { useActiveHabits, useReducedMotion, useSettings } from '@/store/hooks';
@@ -14,7 +14,6 @@ import { AccentPicker, ThemePicker } from '@/components/settings/ThemePicker';
 import { HabitChecklist } from './HabitChecklist';
 import { LoggingTour } from './LoggingTour';
 
-const DEMO_DAYS = 150;
 const NAME_MAX_LENGTH = 24;
 
 const STEPS = [
@@ -133,12 +132,7 @@ export function OnboardingHost() {
     // let the spinner paint before the generator blocks the main thread
     await new Promise((resolve) => setTimeout(resolve, 0));
     try {
-      const current = getData().settings;
-      const demo = generateDemoData(DEMO_DAYS, 42, {
-        dayStartHour: current.dayStartHour,
-        weekStartsOn: current.weekStartsOn,
-      });
-      actions().replaceData({ ...demo, settings: { ...current }, meta: { ...demo.meta, onboarded: true } });
+      if (!loadDemoData()) return;
       finish();
       toast({
         title: 'Demo data loaded',

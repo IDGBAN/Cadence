@@ -19,6 +19,7 @@ export interface BackupSummary {
   firstDay?: DayKey;
   lastDay?: DayKey;
   exportedAt?: string;
+  hasSettings: boolean;
   theme: string;
   userName: string;
 }
@@ -27,21 +28,10 @@ function noun(count: number, singular: string, plural = `${singular}s`): string 
   return Math.abs(count) === 1 ? singular : plural;
 }
 
-function envelopeExportedAt(rawText: string | undefined): string | undefined {
-  if (rawText === undefined) return undefined;
-  try {
-    const parsed: unknown = JSON.parse(rawText.replace(/^\uFEFF/, ''));
-    if (parsed !== null && typeof parsed === 'object' && 'exportedAt' in parsed) {
-      const value = (parsed as { exportedAt?: unknown }).exportedAt;
-      if (typeof value === 'string' && !Number.isNaN(new Date(value).getTime())) return value;
-    }
-  } catch {
-    // the envelope is optional, the data itself was already validated
-  }
-  return undefined;
-}
-
-export function summarizeBackup(data: AppData, rawText?: string): BackupSummary {
+export function summarizeBackup(
+  data: AppData,
+  file: { hasSettings: boolean; exportedAt?: string } = { hasSettings: true },
+): BackupSummary {
   const days = new Set<DayKey>();
   let entries = 0;
   let firstDay: DayKey | undefined;
@@ -63,7 +53,7 @@ export function summarizeBackup(data: AppData, rawText?: string): BackupSummary 
   for (const day of Object.keys(data.dayNotes)) track(day);
   for (const relapse of data.relapses) track(logicalDayOf(relapse.at, data.settings.dayStartHour));
 
-  const exportedAt = envelopeExportedAt(rawText);
+  const { exportedAt, hasSettings } = file;
 
   return {
     habits: data.habits.filter((h) => !h.archived).length,
@@ -77,6 +67,7 @@ export function summarizeBackup(data: AppData, rawText?: string): BackupSummary 
     ...(firstDay === undefined ? {} : { firstDay }),
     ...(lastDay === undefined ? {} : { lastDay }),
     ...(exportedAt === undefined ? {} : { exportedAt }),
+    hasSettings,
     theme: data.settings.theme,
     userName: data.settings.userName,
   };
@@ -146,10 +137,10 @@ export function ImportPreviewModal({ preview, onCancel, onConfirm }: ImportPrevi
       size="lg"
       footer={
         <>
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" data-autofocus onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="danger" data-autofocus onClick={onConfirm}>
+          <Button variant="danger" onClick={onConfirm}>
             Replace my data
           </Button>
         </>
@@ -202,8 +193,9 @@ export function ImportPreviewModal({ preview, onCancel, onConfirm }: ImportPrevi
                   {formatNumber(summary.dayNotes, 0)} journal {noun(summary.dayNotes, 'note')}
                 </p>
                 <p className="truncate text-fg-3">
-                  Settings included · {summary.theme} theme
-                  {summary.userName === '' ? '' : ` · for ${summary.userName}`}
+                  {summary.hasSettings
+                    ? `Settings included · ${summary.theme} theme${summary.userName === '' ? '' : ` · for ${summary.userName}`}`
+                    : 'No settings in this file, so yours stay as they are'}
                 </p>
               </div>
             </div>
@@ -223,8 +215,9 @@ export function ImportPreviewModal({ preview, onCancel, onConfirm }: ImportPrevi
           )}
 
           <SettingNote tone="warning" icon={<TriangleAlert aria-hidden="true" />}>
-            Importing <strong className="font-semibold text-fg">replaces everything</strong> in Habit: habits, logs,
-            streaks, achievements and settings. Changed your mind? Press Ctrl+Z (Cmd+Z) to undo it.
+            Importing <strong className="font-semibold text-fg">replaces everything</strong> in Cadence: habits, logs,
+            streaks, achievements{summary.hasSettings ? ' and settings' : ''}. You can undo it right after with Ctrl+Z
+            (Cmd+Z on a Mac).
           </SettingNote>
         </div>
       )}

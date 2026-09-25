@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { actions } from '@/store/store';
 import { useToday } from '@/store/hooks';
 import { useUI, toast } from '@/store/ui';
-import { exportCsv } from '@/lib/backup';
+import { downloadCsv } from '@/lib/backup';
 import { formatGoal, periodLabel, scheduleLabel, typeLabel } from '@/lib/format';
 import { toDayKey } from '@/lib/dates';
 import { habitStyle } from '@/lib/colors';
@@ -35,17 +35,17 @@ function exportHabitCsv(data: AppData, habit: Habit): void {
     relapses: data.relapses.filter((r) => r.habitId === habit.id),
     dayNotes: {},
   };
-  // leading BOM so Excel opens it as utf-8
-  const blob = new Blob([`﻿${exportCsv(scoped)}`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${fileSlug(habit.name)}-${toDayKey(new Date())}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  toast({ title: 'CSV exported', description: `All logged days for ${habit.name}.`, tone: 'success', icon: '📄' });
+  try {
+    downloadCsv(scoped, `${fileSlug(habit.name)}-${toDayKey(new Date())}.csv`);
+    toast({ title: 'CSV exported', description: `All logged days for ${habit.name}.`, tone: 'success', icon: '📄' });
+  } catch (err) {
+    toast({
+      title: 'Couldn’t export the CSV',
+      description: err instanceof Error ? err.message : 'Please try again.',
+      tone: 'danger',
+      icon: '⚠️',
+    });
+  }
 }
 
 export function HabitDetailHeader({ habit, category, data, weekStartsOn }: HabitDetailHeaderProps) {

@@ -105,8 +105,19 @@ describe('JSON backups', () => {
     [JSON.stringify({ habits: [], categories: 'x' }), /categories in this file are damaged/],
     [JSON.stringify({ app: 'habit', version: 99, data: { habits: [] } }), /newer version/],
     [JSON.stringify({ version: 99, habits: [] }), /newer version/],
+    [JSON.stringify({ habits: [{ id: '__proto__' }], logs: { __proto__: {} } }), /Habit #1 .*can’t use/],
+    [JSON.stringify({ habits: [{ id: 'ok' }, { id: 'constructor' }] }), /Habit #2 .*can’t use/],
   ])('rejects invalid input %#', (text, message) => {
     expect(() => parseBackup(text)).toThrow(message);
+  });
+
+  it('says whether the file carries settings and when it was exported', () => {
+    const exported = readBackup(exportJson(sampleData()));
+    expect(exported.hasSettings).toBe(true);
+    expect(Number.isFinite(Date.parse(exported.exportedAt ?? ''))).toBe(true);
+    const raw = readBackup(JSON.stringify({ habits: [{ id: 'a', name: 'A' }] }));
+    expect(raw.hasSettings).toBe(false);
+    expect(raw.exportedAt).toBeUndefined();
   });
 });
 
